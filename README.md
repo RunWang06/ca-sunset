@@ -14,6 +14,16 @@ python3 serve.py
 
 `serve.py` 只是关闭缓存的 `http.server`，方便调试。ES modules 不能用 `file://` 直接打开。
 
+## 线上地址与更新
+
+线上地址：https://runwang06.github.io/ca-sunset/ （GitHub Pages，`main` 分支根目录）。
+
+修改文件后提交并推送，约 1 分钟后线上自动更新：
+
+```bash
+git add -A && git commit -m "update" && git push
+```
+
 ## 文件
 
 | 文件 | 作用 |
