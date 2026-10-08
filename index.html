@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>加州海岸晚霞预报</title>
+  <meta name="description" content="加州整条海岸的日落与火烧云预测：哪里值得去、几点到、为什么。">
+  <meta name="theme-color" content="#1a1420">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ff6a3d'/%3E%3Cstop offset='1' stop-color='%23ffb347'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='38' r='16' fill='url(%23g)'/%3E%3Crect x='6' y='40' width='52' height='4' rx='2' fill='%23ff6a3d'/%3E%3Crect x='14' y='48' width='36' height='3' rx='1.5' fill='%23c2410c'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>加州海岸晚霞预报 <span class="en">California Coast Sunset</span></h1>
+        <p class="sub" id="subline">今天哪里值得去 · 几点到 · 为什么</p>
+      </div>
+    </div>
+    <button class="ghost" id="methodBtn" aria-haspopup="dialog">方法与局限</button>
+  </header>
+
+  <div class="controls">
+    <div class="seg" id="daySeg" role="tablist" aria-label="选择日期"></div>
+    <div class="search">
+      <input id="search" type="search" placeholder="搜索地点 / Search: Ocean Beach、拉霍亚 La Jolla…" autocomplete="off" aria-label="搜索地点">
+      <ul id="suggest" class="suggest" hidden></ul>
+    </div>
+  </div>
+
+  <div id="status" class="status" role="status" aria-live="polite"></div>
+
+  <main class="layout">
+    <div class="col-main">
+      <section id="answer" class="answer" aria-label="推荐"></section>
+      <section class="list-wrap" aria-label="地点排名">
+        <div class="list-head">
+          <div class="chips" id="regionChips" role="tablist" aria-label="按地区筛选"></div>
+          <div class="list-tools">
+            <label class="sort">排序
+              <select id="sort">
+                <option value="score">观赏评分</option>
+                <option value="prob">发生概率</option>
+                <option value="ns">由北到南</option>
+                <option value="dist">离我最近</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <ol id="spotList" class="spot-list"></ol>
+      </section>
+    </div>
+    <div class="col-map">
+      <div id="map" aria-label="地图"></div>
+      <div class="legend" aria-hidden="true">
+        <span><i style="background:var(--s0)"></i>平淡</span><span><i style="background:var(--s1)"></i>一般</span><span><i style="background:var(--s2)"></i>不错</span><span><i style="background:var(--s3)"></i>值得去</span><span><i style="background:var(--s4)"></i>火烧云</span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    气象数据：<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>（HRRR · ECMWF · GFS · ICON · GEM）· 空气质量：CAMS · 底图 © Esri, OpenStreetMap。<br>
+    实验性模型，不是官方气象预报。
+  </footer>
+
+  <aside id="sheet" class="sheet" aria-modal="true" role="dialog" aria-labelledby="sheetTitle" hidden>
+    <div class="sheet-inner" id="sheetBody"></div>
+  </aside>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <dialog id="methodDlg" class="method">
+    <form method="dialog"><button class="close" aria-label="关闭">✕</button></form>
+    <h2>预测是怎么算的</h2>
+    <p>漂亮的晚霞需要四件事同时成立。每个地点、每个模型都分别计算这四项，再相乘得到 0–100 的<b>观赏评分</b>。</p>
+    <ol class="method-list">
+      <li><b>云层“画布”</b>：观景点上空，以及日落方向 25 km、75 km 处的中高云覆盖率。约 45–70% 最理想；完全晴空仍有金色落日（约 20 分），中高云满天则阳光照不进来。</li>
+      <li><b>光路通畅</b>：沿太阳方位角在 75、150、250 km 远海采样低云。夕阳要从地平线下方照亮云底，远海若有云堤，太阳会提前“没入”云中。这是只看单点天气的预报最常漏掉的一项。</li>
+      <li><b>本地遮挡</b>：观景点及近岸的低云、海雾、能见度和降水。加州全球模式常低估海洋层，所以额外用“强逆温 + 高湿度”识别海雾，并给 3 km 分辨率的 HRRR 更高权重。若观景点海拔高于估算的海洋层顶（来自 HRRR 各气压层云量），则视为“雾上”，可能看到云海。</li>
+      <li><b>空气透明度</b>：CAMS 气溶胶光学厚度（AOD）。轻度气溶胶影响不大，烟霾重时颜色发闷。</li>
+    </ol>
+    <h3>评分 ≠ 概率</h3>
+    <p><b>观赏评分</b>表示“按各模型的预报，晚霞大概会有多好”（五个模型评分的加权平均）。<b>发生概率</b>表示出现明显晚霞（评分 ≥ 55）的可能性：先看有多少模型给出这种结果，再按预报时效与该地区、该月份的气候基准做收缩。两者可以差很多，例如评分中等但模型一致时概率反而稳定；评分很高但只有一个模型支持时，概率会偏低。</p>
+    <p>概率是根据模型间分歧做的启发式估计，<b>尚未用实际观测校准</b>，仅适合横向比较。</p>
+    <h3>置信度</h3>
+    <p>综合模型分歧、可用模型数量、预报时效（明天比今天低）、HRRR 是否可用、数据缺失，以及“海雾临界”情形（雾线进退最难预报）。</p>
+    <h3>地区差异</h3>
+    <p>北海岸（North Coast）、湾区（Bay Area）、中央海岸（Central Coast）、南加州（SoCal）、圣地亚哥（San Diego）分别使用各自逐月的海雾频率和晚霞基准概率；每个地点都用自己的坐标、海拔和开阔海平线方向计算，而不是用一个城市代表整条海岸。</p>
+    <h3>已知局限</h3>
+    <ul>
+      <li>模型云量为网格平均（3–25 km），无法刻画云的纹理或破碎程度。</li>
+      <li>海平线方向和海拔为人工标注的近似值，未计算精细地形遮挡。</li>
+      <li>雾线位置、雾层厚度是最大的不确定来源；出发前请再看一眼实时卫星云图或网络摄像头。</li>
+      <li>数据每 30 分钟缓存一次；模型通常每 1–6 小时更新。</li>
+    </ul>
+  </dialog>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

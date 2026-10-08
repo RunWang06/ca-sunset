@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Tests</title>
+<style>
+  :root { --bg: #fff; --ink: #222; --ok: #1f8a5b; --bad: #c2412c; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #15111a; --ink: #eee; --ok: #4cc38a; --bad: #ff7b66; } }
+  :root[data-theme="dark"] { --bg: #15111a; --ink: #eee; --ok: #4cc38a; --bad: #ff7b66; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.5 ui-monospace, Menlo, monospace; padding: 16px; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<h1>模型单元测试</h1>
+<pre id="out"></pre>
+<script type="module">
+import { canvasQuality, marineHeuristic, clarityFactor, inSector, memberScore, forecast, marineLayerTop } from './model.js';
+import { sunsetInfo } from './sun.js';
+import { REGION_BY_ID } from './spots.js';
+
+const out = []; let fails = 0;
+const ok = (cond, name, extra = '') => { out.push(`<span class="${cond ? 'ok' : 'bad'}">${cond ? '✓' : '✗'} ${name}</span> ${extra}`); if (!cond) fails++; };
+
+const cell = (low, mid, high) => ({ low, mid, high });
+const obs = (low, mid, high, o = {}) => ({ low, mid, high, vis: 30000, t2: 18, t925: 16, rh: 60, precip: 0, ...o });
+const member = (o, path, id = 'ecmwf_ifs025', w = 0.2) => ({ id, name: id, w, path: [o, ...path] });
+const clearPath = [cell(0, 0.3, 0.4), cell(0, 0.2, 0.4), cell(0, 0, 0.1), cell(0, 0, 0)];
+const ctx0 = { clarity: 1, horizon: 1, aboveFog: false };
+
+// canvas curve
+ok(Math.abs(canvasQuality(0) - 0.22) < 1e-9, 'clear sky canvas = 0.22');
+ok(canvasQuality(0.55) === 1, 'canvas peak at ~55%');
+ok(canvasQuality(1) < canvasQuality(0.6) && canvasQuality(1) >= 0.5, 'overcast canvas penalised but not zero');
+
+// scores
+const ideal = memberScore(member(obs(0, 0.25, 0.45), clearPath), ctx0);
+ok(ideal.score >= 85, 'ideal evening scores ≥ 85', ideal.score.toFixed(1));
+const clear = memberScore(member(obs(0, 0, 0), [cell(0, 0, 0), cell(0, 0, 0), cell(0, 0, 0), cell(0, 0, 0)]), ctx0);
+ok(clear.score > 18 && clear.score < 26, 'cloudless evening ≈ 22', clear.score.toFixed(1));
+
+let prev = 101, mono = true;
+for (const low of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
+  const p = [cell(0, 0.3, 0.4), cell(low, 0.2, 0.4), cell(low, 0, 0.1), cell(low, 0, 0)];
+  const s = memberScore(member(obs(0, 0.25, 0.45), p), ctx0).score;
+  if (s > prev + 1e-9) mono = false; prev = s;
+}
+ok(mono, 'more far-ocean low cloud never raises the score (light path)');
+
+prev = 101; mono = true;
+for (const low of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
+  const s = memberScore(member(obs(low, 0.25, 0.45), clearPath), ctx0).score;
+  if (s > prev + 1e-9) mono = false; prev = s;
+}
+ok(mono, 'more local low cloud never raises the score');
+ok(memberScore(member(obs(1, 0.25, 0.45, { vis: 400 }), clearPath), ctx0).score < 10, 'dense fog at the spot → near zero');
+
+// marine-layer heuristic
+ok(marineHeuristic(15, 28, 96) > 0.8, 'strong inversion + saturated air → marine layer likely', marineHeuristic(15, 28, 96).toFixed(2));
+ok(marineHeuristic(22, 20, 50) < 0.05, 'no inversion, dry → unlikely');
+ok(marineHeuristic(null, 20, 50) === null, 'missing input → null (not a fake value)');
+const hidden = memberScore(member(obs(0, 0.25, 0.45, { t2: 15, t925: 28, rh: 97 }), clearPath), ctx0);
+ok(hidden.effLow > 0.6 && hidden.score < ideal.score * 0.65, 'global model with 0 % low cloud but marine signature is penalised', `effLow ${hidden.effLow.toFixed(2)}`);
+
+// clarity
+ok(clarityFactor(0.05) === 1 && clarityFactor(0.3) < 1 && clarityFactor(0.8) < clarityFactor(0.4), 'AOD monotonic');
+ok(clarityFactor(null) === 0.88, 'missing AOD → conservative 0.88');
+
+// sectors
+ok(inSector(250, [200, 320]) && !inSector(330, [200, 320]) && inSector(10, [300, 30]), 'horizon sector incl. wrap-around');
+
+// marine-layer top
+ok(marineLayerTop({ cc1000: 0.9, cc975: 0.8, cc950: 0.1, cc925: 0, cc900: 0 }) === 440, 'ML top from pressure levels', marineLayerTop({ cc1000: 0.9, cc975: 0.8, cc950: 0.1 }));
+
+// full forecast
+const region = REGION_BY_ID.bay;
+const sun = sunsetInfo('2026-10-07', 37.76, -122.511, 5);
+const spot = { id: 't', lat: 37.76, lon: -122.511, elev: 5, view: [200, 320] };
+const mk = (o, p) => ['ncep_hrrr_conus', 'ecmwf_ifs025', 'gfs_global', 'icon_seamless', 'gem_seamless'].map((id) => member(o, p, id, 0.2));
+const good = forecast({ spot, sun, day: 0, members: mk(obs(0, 0.25, 0.45), clearPath), aq: { aod: 0.06 }, profile: null, region, month: 9, pathAvailable: true });
+ok(good.score >= 85 && good.prob > 0.7 && good.confidence.level === '高', 'agreeing ideal members → high score, high prob, high confidence', `${good.score} / ${(good.prob * 100) | 0}%`);
+const split = forecast({ spot, sun, day: 0, members: [...mk(obs(0, 0.25, 0.45), clearPath).slice(0, 2), ...mk(obs(1, 0, 0), clearPath).slice(2)], aq: { aod: 0.06 }, profile: null, region, month: 9, pathAvailable: true });
+ok(split.prob < good.prob && split.confidence.level !== '高', 'disagreeing members → lower prob & confidence', `${split.score} / ${(split.prob * 100) | 0}% / ${split.confidence.level}`);
+const tomorrow = forecast({ spot, sun, day: 1, members: mk(obs(0, 0.25, 0.45), clearPath), aq: { aod: 0.06 }, profile: null, region, month: 9, pathAvailable: true });
+ok(tomorrow.prob < good.prob, 'same forecast tomorrow → lower probability (lead time)');
+const none = forecast({ spot, sun, day: 0, members: mk(null, []), aq: null, profile: null, region, month: 9, pathAvailable: false });
+ok(none.insufficient && none.score === null && none.prob === null, 'no data → insufficient, no fake numbers');
+ok(good.score !== null && forecast({ spot, sun, day: 0, members: mk(obs(0, 0.25, 0.45), clearPath), aq: null, profile: null, region, month: 9, pathAvailable: true }).warnings.some((w) => w.includes('AOD')), 'missing AOD is surfaced as a warning');
+
+// above the fog
+const foggyPath = [cell(0.95, 0.2, 0.4), cell(0.2, 0.1, 0.3), cell(0, 0, 0.1), cell(0, 0, 0)];
+const fogProfile = { low: 0.95, cc1000: 0.95, cc975: 0.9, cc950: 0.2, cc925: 0, cc900: 0, blh: 300 };
+const hill = { ...spot, elev: 760 };
+const low = forecast({ spot, sun, day: 0, members: mk(obs(0.95, 0.2, 0.4), foggyPath), aq: { aod: 0.06 }, profile: fogProfile, region, month: 9, pathAvailable: true });
+const high = forecast({ spot: hill, sun, day: 0, members: mk(obs(0.1, 0.2, 0.4), foggyPath), aq: { aod: 0.06 }, profile: fogProfile, region, month: 9, pathAvailable: true });
+ok(!low.aboveFog && low.score < 25, 'beach in fog scores low', low.score);
+ok(high.aboveFog && high.score > low.score + 30, 'peak above the marine layer is flagged and scores higher', `${high.score}, top ${high.mlTop} m`);
+const noFogHill = forecast({ spot: hill, sun, day: 0, members: mk(obs(0, 0, 0), [cell(0, 0, 0), cell(0, 0, 0), cell(0, 0, 0), cell(0, 0, 0)]), aq: { aod: 0.06 }, profile: { low: 0, blh: 200 }, region, month: 9, pathAvailable: true });
+ok(!noFogHill.aboveFog, 'no fog anywhere → no "above the fog" claim');
+
+// sun
+const sf = new Date(sun.sunset).toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit' });
+ok(sf === '06:46 PM' || sf === '06:47 PM', 'SF sunset 2026-10-07 ≈ 18:46 PDT', sf);
+ok(Math.abs(sun.azimuth - 263.5) < 1.5, 'SF sunset azimuth ≈ 263°', sun.azimuth.toFixed(1));
+ok(sunsetInfo('2026-10-07', 37.93, -122.58, 760).elevationGainMin >= 3, 'elevated spot sees a later sunset');
+
+out.push('', fails ? `<span class="bad">${fails} failed</span>` : '<span class="ok">all passed</span>');
+document.getElementById('out').innerHTML = out.join('\n');
+document.title = fails ? `FAIL ${fails}` : 'PASS';
+</script>
+</body>
+</html>
