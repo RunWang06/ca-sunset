@@ -228,10 +228,15 @@ function renderAnswer() {
 function renderStatus(extra = '') {
   const d = state.data;
   let html = '';
-  if (state.loading) html = '正在获取 5 个气象模型、海洋层结构和空气质量数据…';
-  else if (d) {
-    html = `数据更新于 ${t(d.at)}${d.fromCache ? '（缓存）' : ''} · <a href="#" id="refresh">刷新</a>`;
-    if (d.errors?.length) html += ` · <span class="warn">部分数据获取失败：${esc(d.errors.join('；'))}</span>`;
+  if (state.loading) {
+    const p = state.progress;
+    html = `正在获取 5 个气象模型、海洋层结构和空气质量数据${p ? `（${p[0]}/${p[1]}）` : ''}…服务器较忙时可能需要半分钟`;
+  } else if (d) {
+    const age = Math.round((Date.now() - d.at) / 60000);
+    html = d.stale
+      ? `<span class="warn">网络不稳定，暂时显示 ${age >= 60 ? `${Math.floor(age / 60)} 小时 ${age % 60} 分钟` : `${age} 分钟`}前（${t(d.at)}）的数据</span> · <a href="#" id="refresh">重试</a>`
+      : `数据更新于 ${t(d.at)}${{ prebuilt: '（云端每小时更新）', cache: '（本机缓存）', live: '（实时获取）' }[d.source] || ''} · <a href="#" id="refresh">刷新</a>`;
+    if (d.errors?.length && !d.stale) html += ` · <span class="warn">部分数据没取到，相关地点显示“数据不足”或按保守值估计：${esc(d.errors.join('；'))}</span>`;
   }
   if (state.todayOver && state.day === 1) html = `今天的日落已经结束，显示明天的预测。 ${html}`;
   $('#status').innerHTML = html + extra;
@@ -503,22 +508,39 @@ function locate() {
 }
 
 // ---------- load ----------
+let retryTimer = null;
 async function load(force = false) {
-  state.loading = true; renderStatus(); renderAnswer(); renderList();
+  clearTimeout(retryTimer);
+  const hadData = !!state.data;
+  state.loading = true; state.progress = null;
+  renderStatus();
+  if (!hadData) { renderAnswer(); renderList(); } // a refresh keeps showing the current forecast meanwhile
   try {
     const az = Object.fromEntries(SPOTS.map((s, i) => [s.id, state.suns[0][i].azimuth]));
-    state.data = await loadData(SPOTS, az, state.dates[0], { force });
-    compute();
+    const data = await loadData(SPOTS, az, state.dates[0], {
+      force, onProgress: (done, total) => { state.progress = [done, total]; if (state.loading) renderStatus(); },
+    });
+    // A stale fallback must not replace the (newer) forecast already on screen.
+    if (!(data.stale && hadData)) { state.data = data; compute(); }
     state.loading = false;
     renderAll();
+    if (data.stale) {
+      renderStatus(' · <span class="warn">刷新失败，1 分钟后自动重试</span>');
+      retryTimer = setTimeout(() => load(true), 60000);
+    }
     const h = new URLSearchParams(location.hash.slice(1));
     if (h.get('s') && !state.selected) { if (h.get('d') != null) state.day = +h.get('d') === 1 ? 1 : 0; renderAll(); openSpot(h.get('s')); }
   } catch (e) {
     state.loading = false;
-    $('#answer').innerHTML = `<div class="coast-note"><b>无法获取气象数据。</b>${esc(e.message)}<br>可能是网络问题或 Open-Meteo 免费接口的调用频率限制，请稍后 <a href="#" id="retry">重试</a>。</div>`;
+    if (hadData) {
+      renderStatus(` · <span class="warn">刷新失败（${esc(e.message)}），继续显示之前的数据</span>`);
+      return;
+    }
+    $('#answer').innerHTML = `<div class="coast-note"><b>暂时无法获取气象数据。</b>Open-Meteo 免费气象接口目前响应很慢或连接中断（已自动重试 3 次）。<br>页面会在 30 秒后自动再试，也可以现在 <a href="#" id="retry">手动重试</a>。<br><small style="color:var(--ink-3)">${esc(e.message)}</small></div>`;
     $('#retry')?.addEventListener('click', (ev) => { ev.preventDefault(); load(true); });
     $('#spotList').innerHTML = '';
     $('#status').innerHTML = '';
+    retryTimer = setTimeout(() => load(true), 30000);
   }
 }
 

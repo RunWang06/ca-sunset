@@ -1,2 +1,5 @@
 .claude/
 .DS_Store
+data.json
+_site/
+_data.json

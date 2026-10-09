@@ -36,18 +36,52 @@ export function addDays(dateStr, n) {
 }
 
 // ---------- fetching ----------
-async function getJSON(url, timeout = 20000) {
+// Open-Meteo's free API answers in 1–25 s depending on load and occasionally drops connections, so
+// requests are small, few at a time, generously timed out and retried with backoff.
+const TIMEOUT = 45000;
+const RETRIES = 2;
+const CONCURRENCY = 4;
+const STALE_MAX = 12 * 60 * 60 * 1000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+class FetchError extends Error {
+  constructor(message, retryable, rateLimited = false) { super(message); this.retryable = retryable; this.rateLimited = rateLimited; }
+}
+
+async function getJSON(url) {
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), timeout);
+  const t = setTimeout(() => ctl.abort(), TIMEOUT);
   try {
-    const res = await fetch(url, { signal: ctl.signal });
+    let res;
+    try { res = await fetch(url, { signal: ctl.signal }); }
+    catch (e) { throw new FetchError(e.name === 'AbortError' ? '请求超时' : '网络连接中断', true); }
     if (!res.ok) {
       let reason = `HTTP ${res.status}`;
       try { reason = (await res.json()).reason || reason; } catch {}
-      throw new Error(reason);
+      throw new FetchError(res.status === 429 ? '调用太频繁，被限流' : reason, res.status === 429 || res.status >= 500, res.status === 429);
     }
     return await res.json();
   } finally { clearTimeout(t); }
+}
+
+async function getWithRetry(url) {
+  for (let attempt = 0; ; attempt++) {
+    try { return await getJSON(url); }
+    catch (e) {
+      if (!e.retryable || attempt >= RETRIES) throw e;
+      // The free quota is counted per minute, so a 429 needs a much longer pause than a dropped connection.
+      await sleep((e.rateLimited ? 20000 * (attempt + 1) : 1500 * 3 ** attempt) * (0.7 + 0.6 * Math.random()));
+    }
+  }
+}
+
+// One shared queue so all data layers together never have more than CONCURRENCY requests in flight.
+let active = 0;
+const waiting = [];
+async function limited(fn) {
+  if (active >= CONCURRENCY) await new Promise((r) => waiting.push(r));
+  active++;
+  try { return await fn(); } finally { active--; waiting.shift()?.(); }
 }
 
 // Keep only late-afternoon/evening hours: that is all the model needs, and it keeps the cache small.
@@ -67,58 +101,68 @@ function parseLocation(loc, models, vars) {
   return out;
 }
 
-async function fetchPoints(base, points, params, models, vars) {
+/**
+ * Fetch one data layer in chunks. A failed chunk leaves nulls for its locations instead of sinking
+ * the whole layer. Resolves { locs, failed, total, reason }.
+ */
+async function fetchPoints(base, points, params, models, vars, tick) {
   const chunks = [];
   for (let i = 0; i < points.length; i += CHUNK) chunks.push(points.slice(i, i + CHUNK));
-  const results = await Promise.all(chunks.map(async (pts) => {
+  let failed = 0, reason = '';
+  const results = await Promise.all(chunks.map((pts) => limited(async () => {
     const q = new URLSearchParams({
       latitude: pts.map((p) => p[0].toFixed(3)).join(','),
       longitude: pts.map((p) => p[1].toFixed(3)).join(','),
       hourly: vars.join(','), timeformat: 'unixtime', timezone: 'GMT', ...params,
     });
     if (models) q.set('models', models.join(','));
-    const json = await getJSON(`${base}?${q}`);
-    const arr = Array.isArray(json) ? json : [json];
-    return arr.map((loc) => parseLocation(loc, models || ['cams'], vars));
-  }));
-  return results.flat();
+    try {
+      const json = await getWithRetry(`${base}?${q}`);
+      const arr = Array.isArray(json) ? json : [json];
+      return arr.map((loc) => parseLocation(loc, models || ['cams'], vars));
+    } catch (e) {
+      failed++; reason = e.message;
+      return pts.map(() => null);
+    } finally { tick(); }
+  })));
+  return { locs: results.flat(), failed, total: chunks.length, reason };
 }
+export const chunkCount = (n) => Math.ceil(n / CHUNK);
 
-function cacheGet(key) {
+function cacheGet(key, maxAge) {
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + key);
     if (!raw) return null;
     const v = JSON.parse(raw);
-    return Date.now() - v.at < CACHE_TTL ? v : null;
+    return Date.now() - v.at < maxAge ? v : null;
   } catch { return null; }
 }
-function cacheSet(key, data) {
+function cacheSet(key, data, at = Date.now()) {
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
       if (k && k.startsWith(CACHE_PREFIX) && k !== CACHE_PREFIX + key) localStorage.removeItem(k);
     }
-    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ at: Date.now(), data }));
+    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ at, data }));
   } catch {}
 }
 
 /**
- * Fetch everything for all spots. azimuths[spotId] = today's sunset azimuth (path direction).
- * Returns { at, fromCache, errors[], obs[], path[], profile[], aq[], pathKeys, pathIndex }.
+ * Fetch every data layer for all spots straight from Open-Meteo. Used by the browser as a fallback
+ * and by scripts/build-data.mjs (GitHub Actions) to prebuild data.json.
+ * azimuths[spotId] = today's sunset azimuth (the path direction). onProgress(done, total).
  */
-export async function loadData(spots, azimuths, startDate, { force = false } = {}) {
+export async function fetchAll(spots, azimuths, startDate, { onProgress = () => {} } = {}) {
   const endDate = addDays(startDate, 2); // GMT dates: tomorrow's sunset falls on the next UTC day
-  const cacheKey = `${startDate}`;
-  if (!force) { const c = cacheGet(cacheKey); if (c) return { ...c.data, at: c.at, fromCache: true }; }
-
   const obsPts = spots.map((s) => [s.lat, s.lon]);
-  // Points along each spot's sunset azimuth. Far points are snapped to a 0.25° grid (the global
-  // models' resolution) so neighbouring spots share them and the request stays small.
+  // Points along each spot's sunset azimuth, snapped to a grid that coarsens with distance (far
+  // points only need the global models' resolution) so neighbouring spots share them. This keeps
+  // a full download inside Open-Meteo's free per-minute quota.
   const pathIndex = {}, pathKeys = [], pathPts = [];
   for (const s of spots) {
     pathIndex[s.id] = PATH_KM.slice(1).map((km) => {
       const [la, lo] = destPoint(s.lat, s.lon, azimuths[s.id], km);
-      const step = km <= 25 ? 0.1 : 0.25;
+      const step = km <= 25 ? 0.1 : km <= 75 ? 0.25 : 0.5;
       const key = `${(Math.round(la / step) * step).toFixed(2)},${(Math.round(lo / step) * step).toFixed(2)}`;
       let i = pathKeys.indexOf(key);
       if (i < 0) { i = pathKeys.length; pathKeys.push(key); pathPts.push(key.split(',').map(Number)); }
@@ -127,19 +171,61 @@ export async function loadData(spots, azimuths, startDate, { force = false } = {
   }
   const modelIds = MODELS.map((m) => m.id);
   const dates = { start_date: startDate, end_date: endDate };
-  const errors = [];
-  const safe = (label, p) => p.catch((e) => { errors.push(`${label}：${e.message}`); return null; });
+  const total = chunkCount(obsPts.length) * 3 + chunkCount(pathPts.length);
+  let done = 0;
+  const tick = () => onProgress(++done, total);
+  onProgress(0, total);
 
-  const [obs, path, profile, aq] = await Promise.all([
-    safe('观景点天气', fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, modelIds, OBS_VARS)),
-    safe('日落方向远海云量', fetchPoints(WX, pathPts, { ...dates, cell_selection: 'sea' }, modelIds, PATH_VARS)),
-    safe('海洋层垂直结构', fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, PROFILE_MODELS, PROFILE_VARS)),
-    safe('空气质量', fetchPoints(AQ, obsPts, { ...dates, domains: 'cams_global' }, null, AQ_VARS)),
+  const layers = await Promise.all([
+    fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, modelIds, OBS_VARS, tick),
+    fetchPoints(WX, pathPts, { ...dates, cell_selection: 'sea' }, modelIds, PATH_VARS, tick),
+    fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, PROFILE_MODELS, PROFILE_VARS, tick),
+    fetchPoints(AQ, obsPts, { ...dates, domains: 'cams_global' }, null, AQ_VARS, tick),
   ]);
-  if (!obs && !path) throw new Error(errors.join('；') || '无法获取气象数据');
-  const data = { errors, obs, path, profile, aq, pathKeys, pathIndex, azimuths };
-  if (!errors.length) cacheSet(cacheKey, data);
-  return { ...data, at: Date.now(), fromCache: false };
+  const labels = ['观景点天气', '日落方向远海云量', '海洋层垂直结构', '空气质量'];
+  const errors = layers.flatMap((l, i) => (l.failed ? [`${labels[i]} ${l.failed}/${l.total} 组失败（${l.reason}）`] : []));
+  const [obs, path, profile, aq] = layers.map((l) => (l.failed === l.total ? null : l.locs));
+  if (!obs) throw new Error(errors.join('；') || '无法获取气象数据');
+  return { startDate, errors, obs, path, profile, aq, pathKeys, pathIndex, azimuths };
+}
+
+// data.json is rebuilt hourly by GitHub Actions; trust it while it is reasonably fresh.
+const PREBUILT_MAX = 150 * 60 * 1000;
+async function loadPrebuilt(startDate) {
+  try {
+    const res = await fetch('data.json', { cache: 'no-cache' });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json.data?.startDate !== startDate || !json.data.obs || Date.now() - json.at > PREBUILT_MAX) return null;
+    return json;
+  } catch { return null; }
+}
+
+/**
+ * Data for the page: browser cache → prebuilt data.json → live Open-Meteo → last good download.
+ * Returns the fetchAll() shape plus { at, source: 'cache'|'prebuilt'|'live', stale }.
+ */
+export async function loadData(spots, azimuths, startDate, { force = false, onProgress = () => {} } = {}) {
+  const cacheKey = `${startDate}`;
+  if (!force) { const c = cacheGet(cacheKey, CACHE_TTL); if (c) return { ...c.data, at: c.at, source: 'cache' }; }
+
+  const pre = await loadPrebuilt(startDate);
+  // On a forced refresh, only accept data.json if it is newer than what the browser already has.
+  const cached = cacheGet(cacheKey, STALE_MAX);
+  if (pre && (!force || !cached || pre.at > cached.at + 60000)) {
+    if (!pre.data.errors?.length) cacheSet(cacheKey, pre.data, pre.at);
+    return { ...pre.data, at: pre.at, source: 'prebuilt' };
+  }
+
+  try {
+    const data = await fetchAll(spots, azimuths, startDate, { onProgress });
+    if (!data.errors.length) cacheSet(cacheKey, data);
+    return { ...data, at: Date.now(), source: 'live' };
+  } catch (e) {
+    // Nothing usable came back: fall back to the last good download for the same dates, if any.
+    if (cached) return { ...cached.data, at: cached.at, source: 'cache', stale: true, errors: [e.message] };
+    throw e;
+  }
 }
 
 // ---------- sampling ----------
