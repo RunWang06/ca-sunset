@@ -38,8 +38,8 @@ export function addDays(dateStr, n) {
 // ---------- fetching ----------
 // Open-Meteo's free API answers in 1–25 s depending on load and occasionally drops connections, so
 // requests are small, few at a time, generously timed out and retried with backoff.
-const TIMEOUT = 45000;
-const RETRIES = 2;
+// Browser defaults; the hourly GitHub Action passes a longer timeout and more retries.
+const NET = { timeout: 45000, retries: 2 };
 const CONCURRENCY = 4;
 const STALE_MAX = 12 * 60 * 60 * 1000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -48,27 +48,29 @@ class FetchError extends Error {
   constructor(message, retryable, rateLimited = false) { super(message); this.retryable = retryable; this.rateLimited = rateLimited; }
 }
 
-async function getJSON(url) {
+async function getJSON(url, timeout) {
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), TIMEOUT);
+  const t = setTimeout(() => ctl.abort(), timeout);
   try {
-    let res;
-    try { res = await fetch(url, { signal: ctl.signal }); }
-    catch (e) { throw new FetchError(e.name === 'AbortError' ? '请求超时' : '网络连接中断', true); }
+    const res = await fetch(url, { signal: ctl.signal });
     if (!res.ok) {
       let reason = `HTTP ${res.status}`;
       try { reason = (await res.json()).reason || reason; } catch {}
       throw new FetchError(res.status === 429 ? '调用太频繁，被限流' : reason, res.status === 429 || res.status >= 500, res.status === 429);
     }
-    return await res.json();
+    return await res.json(); // the body download is covered by the same timeout
+  } catch (e) {
+    if (e instanceof FetchError) throw e;
+    // Abort (timeout), dropped connection or a truncated body: all worth retrying.
+    throw new FetchError(ctl.signal.aborted ? '请求超时' : '网络连接中断', true);
   } finally { clearTimeout(t); }
 }
 
-async function getWithRetry(url) {
+async function getWithRetry(url, net) {
   for (let attempt = 0; ; attempt++) {
-    try { return await getJSON(url); }
+    try { return await getJSON(url, net.timeout); }
     catch (e) {
-      if (!e.retryable || attempt >= RETRIES) throw e;
+      if (!e.retryable || attempt >= net.retries) throw e;
       // The free quota is counted per minute, so a 429 needs a much longer pause than a dropped connection.
       await sleep((e.rateLimited ? 20000 * (attempt + 1) : 1500 * 3 ** attempt) * (0.7 + 0.6 * Math.random()));
     }
@@ -105,7 +107,7 @@ function parseLocation(loc, models, vars) {
  * Fetch one data layer in chunks. A failed chunk leaves nulls for its locations instead of sinking
  * the whole layer. Resolves { locs, failed, total, reason }.
  */
-async function fetchPoints(base, points, params, models, vars, tick) {
+async function fetchPoints(base, points, params, models, vars, tick, net) {
   const chunks = [];
   for (let i = 0; i < points.length; i += CHUNK) chunks.push(points.slice(i, i + CHUNK));
   let failed = 0, reason = '';
@@ -117,7 +119,7 @@ async function fetchPoints(base, points, params, models, vars, tick) {
     });
     if (models) q.set('models', models.join(','));
     try {
-      const json = await getWithRetry(`${base}?${q}`);
+      const json = await getWithRetry(`${base}?${q}`, net);
       const arr = Array.isArray(json) ? json : [json];
       return arr.map((loc) => parseLocation(loc, models || ['cams'], vars));
     } catch (e) {
@@ -152,7 +154,7 @@ function cacheSet(key, data, at = Date.now()) {
  * and by scripts/build-data.mjs (GitHub Actions) to prebuild data.json.
  * azimuths[spotId] = today's sunset azimuth (the path direction). onProgress(done, total).
  */
-export async function fetchAll(spots, azimuths, startDate, { onProgress = () => {} } = {}) {
+export async function fetchAll(spots, azimuths, startDate, { onProgress = () => {}, net = NET } = {}) {
   const endDate = addDays(startDate, 2); // GMT dates: tomorrow's sunset falls on the next UTC day
   const obsPts = spots.map((s) => [s.lat, s.lon]);
   // Points along each spot's sunset azimuth, snapped to a grid that coarsens with distance (far
@@ -177,10 +179,10 @@ export async function fetchAll(spots, azimuths, startDate, { onProgress = () => 
   onProgress(0, total);
 
   const layers = await Promise.all([
-    fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, modelIds, OBS_VARS, tick),
-    fetchPoints(WX, pathPts, { ...dates, cell_selection: 'sea' }, modelIds, PATH_VARS, tick),
-    fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, PROFILE_MODELS, PROFILE_VARS, tick),
-    fetchPoints(AQ, obsPts, { ...dates, domains: 'cams_global' }, null, AQ_VARS, tick),
+    fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, modelIds, OBS_VARS, tick, net),
+    fetchPoints(WX, pathPts, { ...dates, cell_selection: 'sea' }, modelIds, PATH_VARS, tick, net),
+    fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, PROFILE_MODELS, PROFILE_VARS, tick, net),
+    fetchPoints(AQ, obsPts, { ...dates, domains: 'cams_global' }, null, AQ_VARS, tick, net),
   ]);
   const labels = ['观景点天气', '日落方向远海云量', '海洋层垂直结构', '空气质量'];
   const errors = layers.flatMap((l, i) => (l.failed ? [`${labels[i]} ${l.failed}/${l.total} 组失败（${l.reason}）`] : []));

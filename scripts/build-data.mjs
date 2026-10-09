@@ -10,8 +10,10 @@ const startDate = laDate(Date.now());
 const azimuths = Object.fromEntries(SPOTS.map((s) => [s.id, sunsetInfo(startDate, s.lat, s.lon, s.elev).azimuth]));
 
 const t0 = Date.now();
+// Runs in the background, so be patient: Open-Meteo can take minutes under load from shared runner IPs.
 const data = await fetchAll(SPOTS, azimuths, startDate, {
   onProgress: (done, total) => console.log(`requests ${done}/${total}`),
+  net: { timeout: 150000, retries: 4 },
 });
 const json = JSON.stringify({ version: 1, at: Date.now(), data });
 await writeFile(out, json);
