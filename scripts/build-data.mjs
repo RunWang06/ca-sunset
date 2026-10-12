@@ -18,4 +18,4 @@ const data = await fetchAll(SPOTS, azimuths, startDate, {
 const json = JSON.stringify({ version: 1, at: Date.now(), data });
 await writeFile(out, json);
 console.log(`wrote ${out}: ${(json.length / 1024).toFixed(0)} KB, ${data.pathKeys.length} path points, ` +
-  `${((Date.now() - t0) / 1000).toFixed(1)} s, errors: ${data.errors.length ? data.errors.join('; ') : 'none'}`);
+  `${((Date.now() - t0) / 1000).toFixed(1)} s, errors: ${data.errors.length ? data.errors.map((e) => `${e.layer} ${e.failed}/${e.total} (${e.reason})`).join('; ') : 'none'}`);

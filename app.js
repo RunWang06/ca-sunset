@@ -1,14 +1,18 @@
 import { SPOTS, REGIONS, REGION_BY_ID } from './spots.js';
 import { sunsetInfo, compass, compassEn } from './sun.js';
 import { loadData, buildInputs, laDate, addDays, distanceKm, destPoint } from './data.js';
-import { forecast, MODELS, PATH_KM } from './model.js';
+import { forecast, PATH_KM } from './model.js';
+import { tr, lang, setLang, detectLang, fmtTime, fmtTimeHtml, fmtDay, placeName, regionLabel, regionParen } from './i18n.js';
 
-const TZ = 'America/Los_Angeles';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmtTime = new Intl.DateTimeFormat('zh-CN', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const fmtDay = new Intl.DateTimeFormat('zh-CN', { timeZone: TZ, month: 'numeric', day: 'numeric', weekday: 'short' });
-const t = (ms) => fmtTime.format(new Date(ms));
+const t = fmtTime;     // plain-text clock time
+const tb = fmtTimeHtml; // clock time for big numerals (small AM/PM)
+const dir = (az) => (lang === 'en' ? compassEn(az) : compass(az));
+const ALL_REGION = { id: 'all', name: '全海岸', en: 'All Coast' };
+// Secondary-language place name, shown under / after the primary one.
+const alt = (s) => `<span class="alt">${esc(placeName(s).alt)}</span>`;
+const main = (s) => esc(placeName(s).main);
 const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
 const tone = (s) => (s == null ? 'var(--line)' : s >= 80 ? 'var(--s4)' : s >= 65 ? 'var(--s3)' : s >= 45 ? 'var(--s2)' : s >= 25 ? 'var(--s1)' : 'var(--s0)');
 
@@ -27,21 +31,19 @@ function initDates() {
 
 function renderDaySeg() {
   $('#daySeg').innerHTML = state.dates.map((d, i) => {
-    const [y, m, dd] = d.split('-').map(Number);
-    const lab = fmtDay.format(new Date(Date.UTC(y, m - 1, dd, 20)));
-    return `<button role="tab" data-day="${i}" aria-selected="${state.day === i}">${i ? '明天' : '今天'} <span class="num" style="opacity:.7;font-size:12px">${lab}</span></button>`;
+    return `<button role="tab" data-day="${i}" aria-selected="${state.day === i}">${tr(`day.${i}`)} <span class="num" style="opacity:.7;font-size:12px">${fmtDay(d)}</span></button>`;
   }).join('');
 }
 
 function renderChips() {
-  const items = [{ id: 'all', name: '全海岸' }, ...REGIONS];
-  $('#regionChips').innerHTML = items.map((r) => `<button role="tab" data-region="${r.id}" aria-selected="${state.region === r.id}">${r.name}<span class="en">${r.en || 'All Coast'}</span></button>`).join('');
+  const items = [ALL_REGION, ...REGIONS];
+  $('#regionChips').innerHTML = items.map((r) => `<button role="tab" data-region="${r.id}" aria-selected="${state.region === r.id}">${esc(placeName(r).main)}${alt(r)}</button>`).join('');
 }
 
 // ---------- map ----------
 let map, markers = {}, rayLayer;
 function initMap() {
-  if (!window.L) { $('#map').innerHTML = '<p class="empty">地图加载失败，可用下方列表浏览。</p>'; return; }
+  if (!window.L) { $('#map').innerHTML = `<p class="empty">${tr('map.failed')}</p>`; return; }
   map = L.map('map', { zoomControl: false, attributionControl: true, scrollWheelZoom: matchMedia('(min-width: 960px)').matches }).setView([36.6, -120.6], 6);
   L.control.zoom({ position: 'topright' }).addTo(map);
   const dark = matchMedia('(prefers-color-scheme: dark)').matches;
@@ -62,11 +64,13 @@ function renderMarkers() {
     const visible = matchesFilter(s);
     const html = `<div class="mk ${state.selected === s.id ? 'sel' : ''} ${visible ? '' : 'dim'}" style="background:${tone(sc)}">${sc ?? '·'}</div>`;
     const icon = L.divIcon({ html, className: '', iconSize: [30, 30], iconAnchor: [15, 15] });
+    const pn = placeName(s);
+    const tip = `${esc(pn.main)}<br><small>${esc(pn.alt)}</small>`;
     if (!markers[s.id]) {
-      markers[s.id] = L.marker([s.lat, s.lon], { icon, keyboard: true, title: `${s.name} ${s.en}` })
+      markers[s.id] = L.marker([s.lat, s.lon], { icon, keyboard: true, title: `${pn.main} ${pn.alt}` })
         .addTo(map).on('click', () => openSpot(s.id))
-        .bindTooltip(`${esc(s.name)}<br><small>${esc(s.en)}</small>`, { direction: 'top', offset: [0, -14] });
-    } else markers[s.id].setIcon(icon);
+        .bindTooltip(tip, { direction: 'top', offset: [0, -14] });
+    } else { markers[s.id].setIcon(icon); markers[s.id].setTooltipContent(tip); }
     markers[s.id].setZIndexOffset(state.selected === s.id ? 1000 : (sc ?? 0));
   });
 }
@@ -86,7 +90,7 @@ function drawRay(spot, idx) {
     L.circleMarker(p, {
       radius: 7, weight: 2, color: '#fff', fillOpacity: .95,
       fillColor: low == null ? '#999' : low > 0.5 ? '#7c8597' : low > 0.2 ? '#e6b45c' : '#ff7a45',
-    }).bindTooltip(`${km} km · 低云 ${pct(low)}`, { direction: 'top' }).addTo(group);
+    }).bindTooltip(tr('ray.tip', { km, p: pct(low) }), { direction: 'top' }).addTo(group);
   });
   rayLayer = group.addTo(map);
   const wide = matchMedia('(min-width: 960px)').matches;
@@ -143,7 +147,7 @@ function rows() {
 
 function badge(score, small = true) {
   if (score == null) return `<div class="badge na">N/A</div>`;
-  const lab = score >= 80 ? '火烧云' : score >= 65 ? '值得去' : score >= 45 ? '不错' : score >= 25 ? '一般' : '平淡';
+  const lab = tr(`legend.${score >= 80 ? 4 : score >= 65 ? 3 : score >= 45 ? 2 : score >= 25 ? 1 : 0}`);
   return `<div class="badge num" style="background:${tone(score)}"><div>${score}${small ? `<small>${lab}</small>` : ''}</div></div>`;
 }
 
@@ -153,19 +157,19 @@ function renderList() {
     return;
   }
   const list = rows();
-  if (!list.length) { $('#spotList').innerHTML = `<li class="empty">没有匹配“${esc(state.query)}”的地点</li>`; return; }
+  if (!list.length) { $('#spotList').innerHTML = `<li class="empty">${tr('list.empty', { q: esc(state.query) })}</li>`; return; }
   $('#spotList').innerHTML = list.map(({ s, r }) => {
-    const reg = `${REGION_BY_ID[s.region].name} ${REGION_BY_ID[s.region].en}`;
+    const reg = regionLabel(REGION_BY_ID[s.region]);
     const dist = state.userLoc ? ` · ${Math.round(distanceKm(state.userLoc, s))} km` : '';
     const past = state.day === 0 && Date.now() > r.sun.dusk;
     return `<li class="spot ${state.selected === s.id ? 'active' : ''} ${past ? 'past' : ''}" data-id="${s.id}" tabindex="0">
       ${badge(r.score)}
       <div style="min-width:0">
-        <div class="nm">${esc(s.name)}<span class="en">${esc(s.en)}</span></div>
-        <div class="meta num">${reg} · ${past ? '今日已结束' : `日落 ${t(r.sun.sunset)}`} · ${compass(r.sun.azimuth)}${dist}</div>
-        <div class="hl">${esc(r.headline)}</div>
+        <div class="nm">${main(s)}${alt(s)}</div>
+        <div class="meta num">${past ? tr('list.over') : tr('list.sunset', { t: t(r.sun.sunset) })} · ${dir(r.sun.azimuth)}${dist} · ${esc(reg)}</div>
+        <div class="hl">${esc(tr(r.headline))}</div>
       </div>
-      <div class="right num">${r.prob == null ? '' : `<b>${pct(r.prob)}</b>概率`}</div>
+      <div class="right num">${r.prob == null ? '' : `<b>${pct(r.prob)}</b>${tr('list.prob')}`}</div>
     </li>`;
   }).join('');
 }
@@ -178,10 +182,10 @@ function renderAnswer() {
   const inScope = SPOTS.map((s, i) => ({ s, i, r: res[i] })).filter(({ s, r }) => r.score != null && (state.region === 'all' || s.region === state.region));
   // Today: only recommend places whose afterglow hasn't ended yet.
   const pool = state.day === 0 ? inScope.filter(({ r }) => r.sun.dusk > now) : inScope;
-  if (!inScope.length) { el.innerHTML = '<div class="coast-note">所选范围暂时没有可用预测数据。</div>'; return; }
+  if (!inScope.length) { el.innerHTML = `<div class="coast-note">${tr('ans.noData')}</div>`; return; }
   if (!pool.length) {
-    el.innerHTML = `<div class="hero dull"><div class="eyebrow">今天</div><h2>这一带今天的日落已经结束</h2>
-      <p class="why">看看明天哪里值得去。</p><div class="over"><button id="goTomorrow">看明天的预测</button></div></div>`;
+    el.innerHTML = `<div class="hero dull"><div class="eyebrow">${tr('ans.overEyebrow')}</div><h2>${tr('ans.overTitle')}</h2>
+      <p class="why">${tr('ans.overWhy')}</p><div class="over"><button id="goTomorrow">${tr('ans.overBtn')}</button></div></div>`;
     return;
   }
   // Rank by expected value: a high score that probably won't happen should not beat a solid, likely one.
@@ -189,25 +193,26 @@ function renderAnswer() {
   pool.sort((a, b) => rank(b) - rank(a));
   const best = pool[0];
   const dull = best.r.score < 35;
-  const dayWord = state.day ? '明天' : '今天';
+  const dayWord = tr(`day.${state.day}`);
   let countdown = '';
   if (state.day === 0 && best.r.timing.arrive > now) {
     const m = Math.round((best.r.timing.arrive - now) / 60000);
-    countdown = m >= 60 ? `距建议到达还有 ${Math.floor(m / 60)} 小时 ${m % 60} 分` : `距建议到达还有 ${m} 分钟`;
-  } else if (state.day === 0 && best.r.sun.dusk > now) countdown = '晚霞时段进行中';
-  const scope = state.region === 'all' ? '全加州海岸' : `${REGION_BY_ID[state.region].name}（${REGION_BY_ID[state.region].en}）`;
-  const good = best.r.reasons.filter((x) => x.tone === 'good').slice(0, 1).map((x) => x.text)[0];
+    countdown = m >= 60 ? tr('ans.countdownHM', { h: Math.floor(m / 60), m: m % 60 }) : tr('ans.countdownM', { m });
+  } else if (state.day === 0 && best.r.sun.dusk > now) countdown = tr('ans.glowNow');
+  const scope = state.region === 'all' ? tr('scope.all') : regionParen(REGION_BY_ID[state.region]);
+  const good = best.r.reasons.find((x) => x.tone === 'good');
+  const sep = lang === 'en' ? '. ' : '。';
   el.innerHTML = `
-    <div class="hero ${dull ? 'dull' : ''}" data-id="${best.s.id}" tabindex="0" role="button" aria-label="查看 ${esc(best.s.name)} 详情">
-      <div class="eyebrow">${dull ? `${dayWord}${scope}晚霞机会都不大 · 相对最好的是` : `${dayWord}${scope}最值得去`}</div>
-      <h2>${esc(best.s.name)}</h2>
-      <div class="eyebrow">${esc(best.s.en)} · ${REGION_BY_ID[best.s.region].name} ${REGION_BY_ID[best.s.region].en}</div>
-      <p class="why">${esc(best.r.headline)}${good && !dull ? `。${esc(good)}` : ''}</p>
+    <div class="hero ${dull ? 'dull' : ''}" data-id="${best.s.id}" tabindex="0" role="button" aria-label="${esc(tr('ans.open', { name: placeName(best.s).main }))}">
+      <div class="eyebrow">${esc(tr(dull ? 'ans.eyebrowDull' : 'ans.eyebrow', { day: dayWord, scope }))}</div>
+      <h2>${main(best.s)}</h2>
+      <div class="eyebrow">${esc(placeName(best.s).alt)} · ${esc(regionLabel(REGION_BY_ID[best.s.region]))}</div>
+      <p class="why">${esc(tr(best.r.headline))}${good && !dull ? `${sep}${esc(tr(good.id, good.vars))}` : ''}</p>
       <div class="kpis num">
-        <div class="kpi"><b>${best.r.score}</b><span>观赏评分</span></div>
-        <div class="kpi"><b>${pct(best.r.prob)}</b><span>发生概率 · ${best.r.confidence.level}置信</span></div>
-        <div class="kpi"><b>${t(best.r.timing.arrive)}</b><span>建议到达</span></div>
-        <div class="kpi"><b>${t(best.r.sun.sunset)}</b><span>日落 · ${compass(best.r.sun.azimuth)}</span></div>
+        <div class="kpi"><b>${best.r.score}</b><span>${tr('kpi.score')}</span></div>
+        <div class="kpi"><b>${pct(best.r.prob)}</b><span>${tr('kpi.prob', { c: tr(`conf.${best.r.confidence.level}`) })}</span></div>
+        <div class="kpi"><b>${tb(best.r.timing.arrive)}</b><span>${tr('kpi.arrive')}</span></div>
+        <div class="kpi"><b>${tb(best.r.sun.sunset)}</b><span>${tr('kpi.sunset', { dir: dir(best.r.sun.azimuth) })}</span></div>
       </div>
       ${countdown ? `<div class="eyebrow" style="margin-top:10px">${countdown}</div>` : ''}
     </div>
@@ -216,12 +221,12 @@ function renderAnswer() {
       if (!p.length) return '';
       const b = p[0];
       return `<button class="rb" data-id="${b.s.id}">
-        <div class="r">${reg.name}最佳 · ${reg.en}</div>
-        <div class="n">${esc(b.s.name)}</div>
-        <div class="ne">${esc(b.s.en)}</div>
-        <div class="m num"><span class="badge" style="width:auto;height:auto;padding:1px 6px;border-radius:6px;font-size:12px;background:${tone(b.r.score)}">${b.r.score}</span>${pct(b.r.prob)} · ${t(b.r.timing.arrive)} 到</div>
+        <div class="r">${esc(tr('rb.best', { region: regionLabel(reg) }))}</div>
+        <div class="n">${main(b.s)}</div>
+        <div class="ne">${esc(placeName(b.s).alt)}</div>
+        <div class="m num"><span class="badge" style="width:auto;height:auto;padding:1px 6px;border-radius:6px;font-size:12px;background:${tone(b.r.score)}">${b.r.score}</span>${pct(b.r.prob)} · ${tr('rb.arrive', { t: t(b.r.timing.arrive) })}</div>
       </button>`;
-    }).join('')}</div>` : `<div class="coast-note"><b>${REGION_BY_ID[state.region].name}（${REGION_BY_ID[state.region].en}）气候特点：</b>${REGION_BY_ID[state.region].note}</div>`}
+    }).join('')}</div>` : `<div class="coast-note"><b>${esc(tr('coast.climate', { region: regionParen(REGION_BY_ID[state.region]) }))}</b>${tr(`note.${state.region}`)}</div>`}
   `;
 }
 
@@ -230,16 +235,51 @@ function renderStatus(extra = '') {
   let html = '';
   if (state.loading) {
     const p = state.progress;
-    html = `正在获取 5 个气象模型、海洋层结构和空气质量数据${p ? `（${p[0]}/${p[1]}）` : ''}…服务器较忙时可能需要半分钟`;
+    html = tr('status.loading', { p: p ? ` (${p[0]}/${p[1]})` : '' });
   } else if (d) {
     const age = Math.round((Date.now() - d.at) / 60000);
+    const ageText = age >= 60 ? tr('age.hm', { h: Math.floor(age / 60), m: age % 60 }) : tr('age.m', { m: age });
     html = d.stale
-      ? `<span class="warn">网络不稳定，暂时显示 ${age >= 60 ? `${Math.floor(age / 60)} 小时 ${age % 60} 分钟` : `${age} 分钟`}前（${t(d.at)}）的数据</span> · <a href="#" id="refresh">重试</a>`
-      : `数据更新于 ${t(d.at)}${{ prebuilt: '（云端每小时更新）', cache: '（本机缓存）', live: '（实时获取）' }[d.source] || ''} · <a href="#" id="refresh">刷新</a>`;
-    if (d.errors?.length && !d.stale) html += ` · <span class="warn">部分数据没取到，相关地点显示“数据不足”或按保守值估计：${esc(d.errors.join('；'))}</span>`;
+      ? `<span class="warn">${tr('status.stale', { age: ageText, t: t(d.at) })}</span> · <a href="#" id="refresh">${tr('status.retry')}</a>`
+      : `${tr('status.updated', { t: t(d.at) })}${d.source ? tr(`src.${d.source}`) : ''} · <a href="#" id="refresh">${tr('status.refresh')}</a>`;
+    if (d.errors?.length && !d.stale) html += ` · <span class="warn">${esc(tr('status.partial', { e: errorText(d.errors) }))}</span>`;
   }
-  if (state.todayOver && state.day === 1) html = `今天的日落已经结束，显示明天的预测。 ${html}`;
+  if (state.todayOver && state.day === 1) html = `${tr('status.todayOver')} ${html}`;
   $('#status').innerHTML = html + extra;
+}
+
+// Data-layer errors are structured; older data.json files may still carry plain strings.
+function errorText(errors) {
+  return errors.map((e) => (typeof e === 'string' ? e : tr('err.layer', {
+    layer: tr(`layer.${e.layer}`), failed: e.failed, total: e.total,
+    reason: ['timeout', 'network', 'ratelimit'].includes(e.reason) ? tr(`reason.${e.reason}`) : e.reason,
+  }))).join(tr('err.sep'));
+}
+
+// ---------- language ----------
+// Static markup: data-i18n="key" sets text; data-i18n-attr="attr:key;attr:key" sets attributes.
+// Long prose (method dialog, footer) has one block per language marked data-lang; CSS shows the active one.
+function applyStatic() {
+  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+  document.title = tr('title');
+  document.querySelector('meta[name="description"]').content = tr('meta.desc');
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = tr(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-attr]').forEach((el) => {
+    for (const pair of el.dataset.i18nAttr.split(';')) {
+      const [attr, key] = pair.split(':');
+      el.setAttribute(attr, tr(key));
+    }
+  });
+}
+
+function switchLang(next) {
+  setLang(next, { remember: true });
+  const url = new URL(location.href);
+  url.searchParams.set('lang', lang); // shared links open in the sender's language
+  history.replaceState(null, '', url);
+  applyStatic();
+  renderAll();
+  if (state.selected) { const i = SPOTS.findIndex((x) => x.id === state.selected); drawRay(SPOTS[i], i); }
 }
 
 function renderAll() {
@@ -252,7 +292,7 @@ function ring(score) {
   const C = 2 * Math.PI * 40, v = (score ?? 0) / 100;
   return `<div class="ring"><svg viewBox="0 0 92 92"><circle cx="46" cy="46" r="40" fill="none" stroke="var(--line)" stroke-width="8"/>
     <circle cx="46" cy="46" r="40" fill="none" stroke="${tone(score)}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C * v} ${C}"/></svg>
-    <div class="v"><b class="num">${score ?? '—'}</b><span>观赏评分</span></div></div>`;
+    <div class="v"><b class="num">${score ?? '—'}</b><span>${tr('ring.score')}</span></div></div>`;
 }
 
 function compassSvg(az, view) {
@@ -262,7 +302,7 @@ function compassSvg(az, view) {
   const span = ((to - f + 360) % 360);
   const [x1, y1] = pt(f, R), [x2, y2] = pt(to, R);
   const [sx, sy] = pt(az, R - 4);
-  return `<svg viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="日落方位 ${Math.round(az)} 度">
+  return `<svg viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="${tr('dir.aria', { az: Math.round(az) })}">
     <circle cx="${cx}" cy="${cy}" r="${R}" fill="var(--bg)" stroke="var(--line)"/>
     <path d="M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${span > 180 ? 1 : 0} 1 ${x2},${y2} Z" fill="#3b82c4" opacity=".22"/>
     <line x1="${cx}" y1="${cy}" x2="${sx}" y2="${sy}" stroke="#ff7a45" stroke-width="3" stroke-linecap="round"/>
@@ -288,9 +328,9 @@ function profileSvg(prof) {
       else if (v > 0.03) cells += `<rect x="${left + 1}" y="${y0}" width="${right - left - 2}" height="${y1 - y0}" rx="6" fill="${col}" opacity="${(0.15 + 0.85 * v).toFixed(2)}"/>`;
     }
   });
-  const labels = PATH_KM.map((km, k) => `<text x="${xs[k]}" y="${H - 6}" text-anchor="middle">${km === 0 ? '你' : km + 'km'}</text>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="日落方向云层剖面">
-    <text x="2" y="34">高云</text><text x="2" y="67">中云</text><text x="2" y="${(92 + yb) / 2 + 3}">低云</text>
+  const labels = PATH_KM.map((km, k) => `<text x="${xs[k]}" y="${H - 6}" text-anchor="${k === PATH_KM.length - 1 ? 'end' : 'middle'}">${km === 0 ? tr('profile.you') : km + 'km'}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${tr('profile.aria')}">
+    <text x="2" y="34">${tr('profile.high')}</text><text x="2" y="67">${tr('profile.mid')}</text><text x="2" y="${(92 + yb) / 2 + 3}">${tr('profile.low')}</text>
     ${cells}
     <line x1="${x0}" y1="${yb}" x2="${x1}" y2="${yb}" stroke="var(--ink-3)"/>
     <circle cx="${x1 - 2}" cy="${yb}" r="9" fill="#ffb347" opacity=".9"/>
@@ -303,7 +343,7 @@ function renderSheet() {
   if (idx < 0) return;
   const s = SPOTS[idx], r = state.results[state.day][idx], reg = REGION_BY_ID[s.region];
   const sun = r.sun, tm = r.timing;
-  const dayWord = state.day ? '明天' : '今天';
+  const dayWord = tr(`day.${state.day}`);
   // timeline geometry: arrive → dusk+10
   const t0 = tm.arrive, t1 = tm.dusk + 10 * 60000, span = t1 - t0;
   const pos = (x) => `${Math.max(0, Math.min(100, ((x - t0) / span) * 100)).toFixed(1)}%`;
@@ -312,88 +352,91 @@ function renderSheet() {
   const f = r.factors || {};
   const factorRow = (name, v, note) => `<div class="factor"><span>${name}</span><div class="bar"><i style="width:${Math.round((v ?? 0) * 100)}%;background:${(v ?? 0) >= 0.8 ? 'var(--good)' : (v ?? 0) >= 0.55 ? 'var(--neutral)' : 'var(--bad)'}"></i></div><span class="num" title="${note}">${v == null ? '—' : Math.round(v * 100)}</span></div>`;
 
+  const pn = placeName(s);
+  const note = [tr(tm.peakKey), s.hike ? tr('tl.hike') : '', sun.elevationGainMin >= 1 ? tr('tl.elev', { n: sun.elevationGainMin }) : ''].filter(Boolean).join(lang === 'en' ? ' ' : '');
+  const fogText = r.aboveFog ? tr('f.aboveFog') : tr('f.fogRisk', { p: pct(r.fogRisk) });
   $('#sheetBody').innerHTML = `
     <div class="sheet-top">
-      <button class="x" id="closeSheet" aria-label="关闭">✕</button>
-      <div style="min-width:0"><h2 id="sheetTitle">${esc(s.name)}</h2><p>${esc(s.en)} · ${reg.name} ${reg.en} · 海拔约 ${s.elev} m</p></div>
-      <button class="ghost share" id="shareBtn">分享</button>
+      <button class="x" id="closeSheet" aria-label="${tr('close')}">✕</button>
+      <div style="min-width:0"><h2 id="sheetTitle">${esc(pn.main)}</h2><p>${esc(pn.alt)} · ${esc(regionLabel(reg))} · ${tr('sheet.elev', { m: s.elev })}</p></div>
+      <button class="ghost share" id="shareBtn">${tr('share.btn')}</button>
     </div>
 
     <div class="card">
       <div class="scoreline">
         ${ring(r.score)}
-        <div class="stat"><b class="num">${pct(r.prob)}</b><span>发生概率</span><em>出现明显晚霞（≥55 分）的可能</em></div>
-        <div class="stat"><b>${r.confidence?.level ?? '—'}</b><span>置信度</span><em>${r.confidence ? `模型分歧 ±${r.confidence.spread} 分` : ''}</em></div>
+        <div class="stat"><b class="num">${pct(r.prob)}</b><span>${tr('stat.prob')}</span><em>${tr('stat.probHint')}</em></div>
+        <div class="stat"><b>${r.confidence ? tr(`conf.${r.confidence.level}`) : '—'}</b><span>${tr('stat.conf')}</span><em>${r.confidence ? tr('stat.spread', { n: r.confidence.spread }) : ''}</em></div>
       </div>
-      <p class="headline">${esc(r.label)} · ${esc(r.headline)}</p>
+      <p class="headline">${esc(tr(r.label))} · ${esc(tr(r.headline))}</p>
     </div>
 
     <div class="card">
-      <h3>${dayWord}几点到</h3>
+      <h3>${esc(tr('card.when', { day: lang === 'en' ? dayWord.toLowerCase() : dayWord }))}</h3>
       <div class="tl"><div class="tl-bar"></div>
-        <div class="tl-peak" style="left:${pos(tm.peakStart)};width:calc(${pos(tm.peakEnd)} - ${pos(tm.peakStart)})" title="最佳观赏"></div></div>
+        <div class="tl-peak" style="left:${pos(tm.peakStart)};width:calc(${pos(tm.peakEnd)} - ${pos(tm.peakStart)})" title="${tr('tl.peakTitle')}"></div></div>
       <div class="tl-ticks num">
-        <div><b>${t(tm.arrive)}</b>建议到达</div>
-        <div><b>${t(sun.sunset)}</b>日落</div>
-        <div><b>${t(tm.peakStart)}</b>最佳至 ${t(tm.peakEnd)}</div>
-        <div><b>${t(sun.dusk)}</b>天黑（民用昏影）</div>
+        <div><b>${tb(tm.arrive)}</b>${tr('tl.arrive')}</div>
+        <div><b>${tb(sun.sunset)}</b>${tr('tl.sunset')}</div>
+        <div><b>${tb(tm.peakStart)}</b>${tr('tl.peakUntil', { t: t(tm.peakEnd) })}</div>
+        <div><b>${tb(sun.dusk)}</b>${tr('tl.dusk')}</div>
       </div>
-      <p class="tl-note">${esc(tm.peakNote)}${s.hike ? ' 这里需要上山或步行，已提前 45 分钟。' : ''}${sun.elevationGainMin >= 1 ? ` 因海拔较高，日落比海边晚约 ${sun.elevationGainMin} 分钟。` : ''}</p>
+      <p class="tl-note">${esc(note)}</p>
     </div>
 
     <div class="card">
-      <h3>为什么</h3>
-      <ul class="reasons">${r.reasons.map((x) => `<li class="${x.tone}">${esc(x.text)}</li>`).join('') || '<li>暂无足够数据给出理由。</li>'}</ul>
+      <h3>${tr('card.why')}</h3>
+      <ul class="reasons">${r.reasons.map((x) => `<li class="${x.tone}">${esc(tr(x.id, x.vars))}</li>`).join('') || `<li>${tr('why.none')}</li>`}</ul>
     </div>
 
     <div class="card">
-      <h3>看哪个方向</h3>
+      <h3>${tr('card.dir')}</h3>
       <div class="dir">
         ${compassSvg(sun.azimuth, s.view)}
         <div>
-          <p><b>面朝${compass(sun.azimuth)}（${compassEn(sun.azimuth)} ${Math.round(sun.azimuth)}°）</b></p>
-          <p style="color:var(--ink-2)">${r.ocean ? '太阳落入开阔海平线。' : '日落点在陆地或山体后，太阳会比海平线日落更早消失。'}蓝色扇区为开阔海面方向。</p>
-          ${r.aboveFog ? `<p style="color:var(--good)">预计雾层顶约 ${r.mlTop} m，你在雾层之上。</p>` : ''}
+          <p><b>${tr('dir.face', { dir: compass(sun.azimuth), en: compassEn(sun.azimuth), az: Math.round(sun.azimuth) })}</b></p>
+          <p style="color:var(--ink-2)">${tr(r.ocean ? 'dir.ocean' : 'dir.land')}${lang === 'en' ? ' ' : ''}${tr('dir.sector')}</p>
+          ${r.aboveFog ? `<p style="color:var(--good)">${tr('dir.aboveFog', { m: r.mlTop })}</p>` : ''}
         </div>
       </div>
       <div class="profile" style="margin-top:12px">
         ${profileSvg(r.profile)}
-        <p class="cap">沿日落方向的云层剖面（多模型加权）：颜色越实，云越多。晚霞需要“近处有中高云、远处低云少”。虚线框表示无数据。</p>
+        <p class="cap">${tr('profile.cap')}</p>
       </div>
     </div>
 
     <div class="card">
-      <h3>评分构成</h3>
+      <h3>${tr('card.factors')}</h3>
       <div class="factors">
-        ${factorRow('云层画布', f.canvasQ, '中高云覆盖')}
-        ${factorRow('光路通畅', f.light, '远海低云')}
-        ${factorRow('本地遮挡', f.local, '海雾/低云/能见度')}
-        ${factorRow('空气透明', f.clarity, 'AOD')}
+        ${factorRow(tr('f.canvas'), f.canvasQ, tr('f.canvasHint'))}
+        ${factorRow(tr('f.light'), f.light, tr('f.lightHint'))}
+        ${factorRow(tr('f.local'), f.local, tr('f.localHint'))}
+        ${factorRow(tr('f.clarity'), f.clarity, tr('f.clarityHint'))}
       </div>
-      <p class="factor-note num">中高云 ${pct(f.cv)}（高云 ${pct(f.high)} · 中云 ${pct(f.mid)}）· 远海低云 ${pct(f.farLow)} · ${r.aboveFog ? '雾上观景' : `海雾风险 ${pct(r.fogRisk)}`} · AOD ${r.aod == null ? '缺失' : r.aod.toFixed(2)}${f.vis != null ? ` · 能见度 ${(f.vis / 1000).toFixed(0)} km` : ''}</p>
+      <p class="factor-note num">${tr('f.note', { cv: pct(f.cv), h: pct(f.high), m: pct(f.mid), fl: pct(f.farLow), fog: fogText, aod: r.aod == null ? tr('f.missing') : r.aod.toFixed(2), vis: f.vis != null ? tr('f.vis', { km: (f.vis / 1000).toFixed(0) }) : '' })}</p>
     </div>
 
     <div class="card">
-      <h3>各模型怎么看</h3>
+      <h3>${tr('card.models')}</h3>
       <div class="models">
-        ${r.members.map((m) => `<div class="mrow"><span>${m.name}</span>${m.score == null ? '<span class="na">无数据</span>' : `<div class="mtrack"><span class="mdot" style="left:${m.score}%;background:${tone(m.score)}"></span></div>`}<span class="num">${m.score ?? ''}</span></div>`).join('')}
+        ${r.members.map((m) => `<div class="mrow"><span>${m.name}</span>${m.score == null ? `<span class="na">${tr('models.na')}</span>` : `<div class="mtrack"><span class="mdot" style="left:${m.score}%;background:${tone(m.score)}"></span></div>`}<span class="num">${m.score ?? ''}</span></div>`).join('')}
       </div>
-      <p class="factor-note">观赏评分是各模型的加权平均；概率看有几个模型达到“明显晚霞”，再按时效和${reg.name}的气候基准收缩。HRRR 分辨率 3 km，最擅长海雾，但只覆盖约 48 小时。</p>
+      <p class="factor-note">${esc(tr('models.note', { region: regionLabel(reg) }))}</p>
     </div>
 
     ${near.length ? `<div class="card">
-      <h3>附近 110 km 内比较</h3>
+      <h3>${tr('card.near')}</h3>
       <ul class="near">${near.map(({ o, d, r: nr }) => `<li data-id="${o.id}">${badge(nr.score, false)}
-        <div style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(o.name)}<span class="en">${esc(o.en)}</span></div><small>${esc(nr.headline)}</small></div>
-        <div style="text-align:right;font-size:12px;color:var(--ink-3)" class="num">${nr.score >= (r.score ?? 0) + 10 && nr.score >= 35 ? '<div class="better">更好</div>' : ''}${Math.round(d)} km<br>${pct(nr.prob)}</div></li>`).join('')}</ul>
-      <p class="factor-note">距离为直线距离，实际车程请以导航为准。</p>
+        <div style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${main(o)}${alt(o)}</div><small>${esc(tr(nr.headline))}</small></div>
+        <div style="text-align:right;font-size:12px;color:var(--ink-3)" class="num">${nr.score >= (r.score ?? 0) + 10 && nr.score >= 35 ? `<div class="better">${tr('near.better')}</div>` : ''}${Math.round(d)} km<br>${pct(nr.prob)}</div></li>`).join('')}</ul>
+      <p class="factor-note">${tr('near.note')}</p>
     </div>` : ''}
 
     <div class="card">
-      <h3>地区气候与数据说明</h3>
-      <p class="region-note"><b>${reg.name}（${reg.en}）：</b>${reg.note}</p>
-      ${r.warnings?.length ? `<ul class="warns" style="margin-top:8px">${r.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
-      <p class="factor-note">评分与概率均为实验性估计，尚未用实际观测校准。出发前可再刷新一次，或查看实时卫星云图。</p>
+      <h3>${tr('card.region')}</h3>
+      <p class="region-note"><b>${esc(regionParen(reg))}${lang === 'en' ? ': ' : '：'}</b>${tr(`note.${reg.id}`)}</p>
+      ${r.warnings?.length ? `<ul class="warns" style="margin-top:8px">${r.warnings.map((w) => `<li>${esc(tr(w.id, w.vars))}</li>`).join('')}</ul>` : ''}
+      <p class="factor-note">${tr('region.disclaimer')}</p>
     </div>
   `;
 }
@@ -428,7 +471,7 @@ function renderSuggest() {
   if (!hits.length) { ul.hidden = true; return; }
   ul.innerHTML = hits.map(({ s, i }, k) => {
     const r = state.results[state.day][i];
-    return `<li data-id="${s.id}" role="option" aria-selected="${k === 0}"><span>${esc(s.name)} <small>${esc(s.en)}</small></span><small class="num">${r?.score ?? ''}</small></li>`;
+    return `<li data-id="${s.id}" role="option" aria-selected="${k === 0}"><span>${main(s)} <small>${esc(placeName(s).alt)}</small></span><small class="num">${r?.score ?? ''}</small></li>`;
   }).join('');
   ul.hidden = false;
 }
@@ -479,6 +522,7 @@ function bind() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.selected) closeSheet(); });
   $('#status').addEventListener('click', (e) => { if (e.target.id === 'refresh') { e.preventDefault(); load(true); } });
   $('#methodBtn').addEventListener('click', () => $('#methodDlg').showModal());
+  $('#langBtn').addEventListener('click', () => switchLang(lang === 'en' ? 'zh' : 'en'));
   window.addEventListener('hashchange', () => {
     const h = new URLSearchParams(location.hash.slice(1));
     const id = h.get('s');
@@ -492,17 +536,18 @@ async function share() {
   const url = location.href;
   const s = SPOTS.find((x) => x.id === state.selected);
   try {
-    if (navigator.share) await navigator.share({ title: `${s.name} ${s.en} 晚霞预报`, url });
-    else { await navigator.clipboard.writeText(url); $('#shareBtn').textContent = '已复制链接'; }
+    const pn = placeName(s);
+    if (navigator.share) await navigator.share({ title: tr('share.title', { name: `${pn.main} ${pn.alt}` }), url });
+    else { await navigator.clipboard.writeText(url); $('#shareBtn').textContent = tr('share.copied'); }
   } catch {}
 }
 
 function locate() {
-  if (!navigator.geolocation) { renderStatus(' · <span class="warn">浏览器不支持定位</span>'); return; }
-  renderStatus(' · 正在定位…');
+  if (!navigator.geolocation) { renderStatus(` · <span class="warn">${tr('status.geoUnsupported')}</span>`); return; }
+  renderStatus(` · ${tr('status.locating')}`);
   navigator.geolocation.getCurrentPosition(
     (p) => { state.userLoc = { lat: p.coords.latitude, lon: p.coords.longitude }; renderStatus(); renderList(); },
-    () => { renderStatus(' · <span class="warn">无法获取位置，已按评分排序</span>'); state.sort = 'score'; $('#sort').value = 'score'; renderList(); },
+    () => { renderStatus(` · <span class="warn">${tr('status.geoFailed')}</span>`); state.sort = 'score'; $('#sort').value = 'score'; renderList(); },
     { timeout: 10000, maximumAge: 600000 },
   );
 }
@@ -525,7 +570,7 @@ async function load(force = false) {
     state.loading = false;
     renderAll();
     if (data.stale) {
-      renderStatus(' · <span class="warn">刷新失败，1 分钟后自动重试</span>');
+      renderStatus(` · <span class="warn">${tr('status.autoRetry')}</span>`);
       retryTimer = setTimeout(() => load(true), 60000);
     }
     const h = new URLSearchParams(location.hash.slice(1));
@@ -533,10 +578,10 @@ async function load(force = false) {
   } catch (e) {
     state.loading = false;
     if (hadData) {
-      renderStatus(` · <span class="warn">刷新失败（${esc(e.message)}），继续显示之前的数据</span>`);
+      renderStatus(` · <span class="warn">${esc(tr('status.refreshFail', { e: errorText(e.errors || [e.message]) }))}</span>`);
       return;
     }
-    $('#answer').innerHTML = `<div class="coast-note"><b>暂时无法获取气象数据。</b>Open-Meteo 免费气象接口目前响应很慢或连接中断（已自动重试 3 次）。<br>页面会在 30 秒后自动再试，也可以现在 <a href="#" id="retry">手动重试</a>。<br><small style="color:var(--ink-3)">${esc(e.message)}</small></div>`;
+    $('#answer').innerHTML = `<div class="coast-note"><b>${tr('fail.title')}</b> ${tr('fail.body', { link: `<a href="#" id="retry">${tr('fail.link')}</a>` })}<br><small style="color:var(--ink-3)">${esc(errorText(e.errors || [e.message]))}</small></div>`;
     $('#retry')?.addEventListener('click', (ev) => { ev.preventDefault(); load(true); });
     $('#spotList').innerHTML = '';
     $('#status').innerHTML = '';
@@ -544,6 +589,8 @@ async function load(force = false) {
   }
 }
 
+setLang(detectLang());
+applyStatic();
 initDates();
 renderDaySeg(); renderChips();
 initMap();

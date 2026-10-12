@@ -1,34 +1,30 @@
 // Coastal climate regions. fog = rough monthly frequency of a coastal marine layer / fog at
 // sunset (Jan..Dec); base = rough prior that a random evening produces a notable glow.
 // These are coarse climatology priors used only to temper probabilities, not forecasts.
+// Each region's climate note lives in i18n.js as 'note.<id>'.
 export const REGIONS = [
   {
     id: 'north', name: '北海岸', en: 'North Coast',
-    note: '湿润的太平洋锋面与夏季持久层云。冬春锋面过境前后常有好云，7–9 月沿岸低云最多，9–10 月相对最佳。',
     fog: [0.35, 0.35, 0.35, 0.4, 0.5, 0.6, 0.7, 0.72, 0.55, 0.4, 0.35, 0.35],
     base: [0.24, 0.24, 0.22, 0.18, 0.12, 0.1, 0.1, 0.12, 0.18, 0.22, 0.24, 0.25],
   },
   {
     id: 'bay', name: '湾区', en: 'Bay Area',
-    note: '夏季海雾经金门海峡（Golden Gate）倒灌，6–8 月海边平地常整晚被雾；Mt Tam、Twin Peaks 等高处可能在雾层之上。9–10 月是晚霞旺季。',
     fog: [0.2, 0.2, 0.25, 0.3, 0.45, 0.62, 0.75, 0.75, 0.5, 0.35, 0.25, 0.2],
     base: [0.24, 0.24, 0.22, 0.18, 0.12, 0.1, 0.1, 0.12, 0.2, 0.24, 0.25, 0.25],
   },
   {
     id: 'central', name: '中央海岸', en: 'Central Coast',
-    note: '大苏尔（Big Sur）高崖常处在海洋层顶附近，雾线高度决定成败；圣克鲁兹（Santa Cruz）面朝南，夏季日落落在陆地一侧。',
     fog: [0.25, 0.25, 0.3, 0.35, 0.5, 0.6, 0.7, 0.7, 0.5, 0.35, 0.25, 0.25],
     base: [0.24, 0.24, 0.22, 0.18, 0.12, 0.1, 0.1, 0.12, 0.2, 0.23, 0.25, 0.25],
   },
   {
     id: 'socal', name: '南加州', en: 'SoCal',
-    note: '5 月灰、6 月阴（May Gray / June Gloom）；秋冬 Santa Ana 离岸风让空气极通透，但也可能带来山火烟。海峡群岛（Channel Islands）与帕洛斯弗迪斯（Palos Verdes） 会遮挡部分海平线。',
     fog: [0.2, 0.25, 0.3, 0.4, 0.6, 0.65, 0.5, 0.45, 0.35, 0.25, 0.2, 0.2],
     base: [0.26, 0.26, 0.24, 0.18, 0.1, 0.08, 0.12, 0.14, 0.18, 0.22, 0.26, 0.28],
   },
   {
     id: 'sd', name: '圣地亚哥', en: 'San Diego',
-    note: '海洋层通常较浅（300–600 m），Mt Soledad、Torrey Pines、Cabrillo 等高点更容易在雾上；夏末季风偶尔带来高空云。',
     fog: [0.2, 0.25, 0.3, 0.4, 0.6, 0.65, 0.5, 0.4, 0.35, 0.25, 0.2, 0.2],
     base: [0.26, 0.26, 0.24, 0.18, 0.1, 0.08, 0.14, 0.16, 0.18, 0.22, 0.26, 0.28],
   },

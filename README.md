@@ -1,91 +1,107 @@
-# 加州海岸晚霞预报
+# California Coast Sunset Forecast
 
-覆盖加州整条海岸（58 个城市、海滩和观景点，从 Crescent City 到 Coronado）的日落与火烧云预测。只看日落，回答三个问题：**今天/明天哪里值得去、几点到、为什么**。
+**English** · [中文](README.zh-CN.md)
 
-纯静态网站：浏览器直接调用 Open-Meteo，无需后端、无需 API key，可以部署到 GitHub Pages、Netlify 或任何静态托管服务。
+**Live site: https://runwang06.github.io/ca-sunset/**
 
-## 本地运行
+A sunset and afterglow forecast for the entire California coast: 58 cities, beaches and viewpoints from Crescent City to Coronado. Sunsets only. It answers three questions: **where is worth going today or tomorrow, when to arrive, and why**.
+
+A fully static site with no backend and no API keys. Weather data is fetched once an hour by GitHub Actions and deployed to GitHub Pages together with the site (see "How data reaches the browser" below).
+
+## Run locally
 
 ```bash
 python3 serve.py
 ```
 
-然后打开 http://127.0.0.1:8765 。模型单元测试在 http://127.0.0.1:8765/tests.html （页面标题显示 PASS / FAIL）。
+Then open http://127.0.0.1:8765. The test page is at http://127.0.0.1:8765/tests.html; its title shows PASS or FAIL.
 
-`serve.py` 只是关闭缓存的 `http.server`，方便调试。ES modules 不能用 `file://` 直接打开。
+`serve.py` is `http.server` with caching turned off, for debugging. It always serves the folder it lives in, wherever you launch it from. The page uses ES modules, so it can't be opened directly via `file://`.
 
-## 线上地址与更新
+Without a local `data.json`, the page calls Open-Meteo directly. You can also generate one first with Node.js: `node scripts/build-data.mjs data.json` (the file is git-ignored).
 
-线上地址：https://runwang06.github.io/ca-sunset/ （GitHub Pages，`main` 分支根目录）。
+## Deployment and updates
 
-修改文件后提交并推送，GitHub Actions 会重新获取数据并部署，约 2 分钟后线上更新：
+GitHub Actions deploys the site to GitHub Pages (`.github/workflows/pages.yml`).
+
+Commit and push your changes. GitHub Actions refetches the data and redeploys, and the live site updates in about 2 minutes:
 
 ```bash
 git add -A && git commit -m "update" && git push
 ```
 
-## 数据怎么到达浏览器
+## How data reaches the browser
 
-Open-Meteo 免费接口按 IP 限流：每分钟约 600 次、每小时 5,000 次、每天 10,000 次，变量多的请求按多次计算。完整下载一次全海岸数据（58 个地点 + 142 个远海采样点 × 5 个模型）大约就用掉一分钟的额度。如果每个访客都直接调用，很容易被限流（HTTP 429），或者因为排队太慢而超时。
+Open-Meteo's free API is rate-limited per IP: about 600 calls per minute, 5,000 per hour and 10,000 per day, and requests with many variables count as several calls. One full download for the coast (58 spots plus 142 offshore sample points, × 5 models) uses roughly a whole minute's quota. If every visitor called the API directly, they would easily get throttled (HTTP 429) or time out waiting in line.
 
-所以：
+So:
 
-1. **GitHub Actions 每小时运行一次**（`.github/workflows/pages.yml`）。它用 `scripts/build-data.mjs` 调用和网页完全相同的 `fetchAll()`，把结果写成 `data.json`，和网站一起部署到 Pages。
-2. 浏览器先读本机缓存（30 分钟内有效），再读 `data.json`（2.5 小时内有效）。都不可用时才直接调用 Open-Meteo：每批 60 个点，最多同时 4 个请求，超时 45 秒，失败自动重试 2 次，遇到 429 会等待 20–40 秒再试。
-3. 某一批请求失败时，只有对应地点显示“数据不足”。全部失败时，显示 12 小时内最后一次成功的数据，并明确标出是多久以前的；页面 1 分钟后会自动重试。
+1. **GitHub Actions runs every hour** (`.github/workflows/pages.yml`). It uses `scripts/build-data.mjs` to call exactly the same `fetchAll()` as the page, writes the result to `data.json`, and deploys it to Pages along with the site.
+2. The browser reads its local cache first (valid for 30 minutes), then `data.json` (valid for 2.5 hours). Only when neither is available does it call Open-Meteo directly: 60 points per batch, at most 4 requests at a time, a 45-second timeout, and 2 automatic retries. After a 429 it waits 20–40 seconds before retrying.
+3. If one batch fails, only the affected spots show "No data". If everything fails, the page shows the last successful download from the past 12 hours, says clearly how old it is, and retries automatically after a minute.
 
-注意：GitHub 会在仓库连续 60 天没有提交后暂停定时任务。如果暂停了，到仓库的 Actions 页面重新启用即可，网页这时会自动退回到直接调用 Open-Meteo。
+Note: GitHub pauses scheduled workflows after 60 days without commits to the repository. If that happens, re-enable the workflow on the repository's Actions page. Until then the page falls back to calling Open-Meteo directly.
 
-## 文件
+## Bilingual (Chinese / English)
 
-| 文件 | 作用 |
+- **UI and explanations switch languages** with the **EN / 中文** button in the top-right corner. On a first visit, the language follows the browser setting: Chinese systems get Chinese, everything else gets English. After that, the visitor's choice is remembered.
+- **Links can carry a language**: `?lang=en` or `?lang=zh`. Switching languages adds this to the address bar, so a shared link opens in the same language.
+- **Place names are always shown in both languages.** The current language's name comes first, and the other follows on the same line or the next one.
+- **All text lives in `i18n.js`**, with Chinese and English side by side. The model (`model.js`) and the data (`data.js`, `data.json`) contain no UI text. They output only "text key + numbers", and the page renders them in the current language. So switching languages never refetches data, and the cloud only needs one copy of it.
+- **When you change any text, change both languages.** `tests.html` checks this automatically: both languages define the same keys, placeholders are consistent, every key used by the page and the model exists, and there are no unused entries.
+
+## Files
+
+| File | Purpose |
 | --- | --- |
-| `spots.js` | 5 个气候区（逐月海雾频率、晚霞基准概率、气候说明）和 58 个地点：坐标、海拔、开阔海平线方向、是否需要步行上山 |
-| `sun.js` | 日落时刻、方位角、民用昏影、海拔带来的地平线下沉 |
-| `data.js` | 拉取并缓存数据（localStorage 30 分钟），沿日落方向生成采样点，在日落时刻插值 |
-| `model.js` | 评分、概率、置信度、理由文字。纯函数，不依赖 DOM |
-| `app.js` | 界面：推荐卡、分区最佳、地图、排名、详情页 |
-| `tests.html` | 用合成场景跑的 27 项模型测试 |
+| `spots.js` | 5 climate regions (monthly fog frequency and baseline glow chance; climate notes live in `i18n.js`) and 58 spots with Chinese and English names, coordinates, elevation, open-horizon direction, and whether a hike is needed |
+| `sun.js` | Sunset time, azimuth, civil dusk, and horizon dip from elevation |
+| `data.js` | Fetches and caches data, generates sample points along the sunset direction, interpolates to sunset time |
+| `scripts/build-data.mjs` | Run hourly by GitHub Actions to generate `data.json` |
+| `model.js` | Score, chance, confidence, and the text keys for reasons and notes. Pure functions: no DOM, and no text in any language |
+| `i18n.js` | All Chinese and English text, language detection and switching, language-aware time and date formatting |
+| `app.js` | UI: recommendation card, best spot per region, map, ranking, detail panel, language switch |
+| `tests.html` | 35 tests: the model (synthetic scenarios) and translation completeness |
 
-## 数据来源
+## Data sources
 
-- **天气，5 个模型**（Open-Meteo `/v1/forecast`）：HRRR 3 km、ECMWF IFS 0.25°、GFS 0.25°、ICON、GEM。变量包括低/中/高云量、能见度、2 m 温度与湿度、925 hPa 温度、降水。
-- **海洋层垂直结构**（HRRR，GFS 作后备）：1000–900 hPa 各气压层云量、边界层高度。
-- **空气质量**（CAMS global）：550 nm 气溶胶光学厚度（AOD）、PM2.5、沙尘。
+- **Weather, 5 models** (Open-Meteo `/v1/forecast`): HRRR 3 km, ECMWF IFS 0.25°, GFS 0.25°, ICON, GEM. Variables: low/mid/high cloud cover, visibility, 2 m temperature and humidity, 925 hPa temperature, precipitation.
+- **Marine-layer structure** (HRRR, with GFS as fallback): cloud cover at the 1000–900 hPa pressure levels and boundary-layer height.
+- **Air quality** (CAMS global): 550 nm aerosol optical depth (AOD), PM2.5, dust.
 
-## 和 San Diego 版相比，方法上改了什么
+## What changed in the method compared with the San Diego version
 
-旧版用单点数据和一个综合公式。推广到整条海岸时，有三个问题必须单独处理：
+The earlier version used single-point data and one combined formula. Extending it to the whole coast meant handling three problems separately:
 
-1. **日落方向的光路。** 晚霞的光是太阳从地平线下方照到云底的。所以真正关键的是太阳方向 75–250 km 远海有没有低云堤，而不只是头顶有没有云。新版沿每个地点的日落方位角，在 25/75/150/250 km 处采样云量：近处的点算“画布”，远处的点算“光路”。远海点对齐到 0.25° 网格去重（58 个地点 → 约 166 个采样点）。
-2. **全球模式会漏掉海洋层。** 实测 2026-10-07 的 SF Ocean Beach：HRRR 给出 100% 低云，四个全球模式都是 0%，而 925 hPa 比地面暖 13 °C，是典型的海洋层逆温。因此新版：(a) 用“逆温强度 × 近地面湿度”构造海雾启发式，修正每个模型的低云；(b) 判断海雾风险时 HRRR 权重更高（今天 50%，明天 30%）。
-3. **地区与地形差异。** 每个地点用自己的坐标和海拔，并标注开阔海平线的扇区。圣克鲁兹、圣塔芭芭拉、马里布朝南，夏季太阳会落到陆地后面。海拔 ≥ 100 m 的观景点，如果高于由 HRRR 气压层云量估算的海洋层顶，会标为“雾上”，有机会看到云海晚霞。每个气候区有自己的逐月海雾频率和晚霞基准概率。
+1. **The light path toward the sunset.** Afterglow is sunlight shining up onto cloud bases from below the horizon. What really matters is whether there is a low-cloud bank 75–250 km offshore toward the sun, not just whether there is cloud overhead. The new version samples cloud cover at 25/75/150/250 km along each spot's sunset azimuth: near points count as the "canvas", far points as the "light path". Far points are snapped to 0.1°, 0.25° or 0.5° grids by distance and deduplicated (58 spots → 142 sample points).
+2. **Global models miss the marine layer.** Measured at SF Ocean Beach on 2026-10-07: HRRR showed 100% low cloud, all four global models showed 0%, and it was 13 °C warmer at 925 hPa than at the surface, a classic marine-layer inversion. So the new version (a) builds a fog heuristic from inversion strength × surface humidity to correct each model's low cloud, and (b) gives HRRR extra weight when judging fog risk (50% today, 30% tomorrow).
+3. **Regional and terrain differences.** Each spot uses its own coordinates and elevation, with its open-horizon sector annotated. Santa Cruz, Santa Barbara and Malibu face south, so in summer the sun sets behind land. Viewpoints at 100 m or higher are marked "above the fog" when they are higher than the marine-layer top estimated from HRRR pressure-level cloud cover, which means a chance of a sea-of-fog sunset. Each climate region has its own monthly fog frequency and baseline glow chance.
 
-## 评分
+## Scoring
 
-每个模型分别计算：
+Each model is scored separately:
 
 ```
-score = 100 × 画布 × 光路 × 本地遮挡 × 空气透明度 × 海平线
+score = 100 × canvas × light path × local view × air clarity × horizon
 ```
 
-- **画布**：中高云覆盖 cv = 1 − (1−high)(1−mid)，按观景点 0.35、25 km 0.4、75 km 0.25 加权。cv = 0 时为 0.22（干净的金色落日），45–72% 时为 1，100% 时为 0.55。
-- **光路**：75/150/250 km 处 `low×0.8 + mid×0.3` 的加权平均，记作 block；光路 = 1 − 1.15 × block。
-- **本地遮挡**：b = 0.8 × 有效低云 + 0.2 × 25 km 低云；本地 = 1 − 0.92 × b^1.6，再乘能见度与降水折减。如果处在雾上，本地 = 0.97，画布至少 0.45。
-- **空气透明度**：AOD ≤ 0.15 时为 1，之后逐渐下降，最低 0.3；缺数据时用 0.88 并给出提示。
-- **海平线**：日落方位在开阔海面扇区内为 1，否则 0.88。
+- **Canvas**: mid/high cloud coverage cv = 1 − (1−high)(1−mid), weighted 0.35 at the spot, 0.4 at 25 km and 0.25 at 75 km. It is 0.22 at cv = 0 (a clean golden sunset), 1 for 45–72%, and 0.55 at 100%.
+- **Light path**: block = weighted average of `low×0.8 + mid×0.3` at 75/150/250 km; light path = 1 − 1.15 × block.
+- **Local view**: b = 0.8 × effective low cloud + 0.2 × low cloud at 25 km; local = 1 − 0.92 × b^1.6, then reduced for visibility and precipitation. Above the fog, local = 0.97 and canvas is at least 0.45.
+- **Air clarity**: 1 for AOD ≤ 0.15, decreasing beyond that to a minimum of 0.3; 0.88 with a warning when data is missing.
+- **Horizon**: 1 when the sunset azimuth is inside the open-sea sector, otherwise 0.88.
 
-**观赏评分** = 各模型评分的加权平均。权重：今天 HRRR 0.32 / ECMWF 0.23 / 其余各 0.15；明天 HRRR 降到 0.2。
+**Viewing score** = weighted average of the model scores. Weights today: HRRR 0.32, ECMWF 0.23, the others 0.15 each. Tomorrow, HRRR drops to 0.2.
 
-**发生概率** = P(评分 ≥ 55)。每个模型贡献 sigmoid((s−55)/7)，加权后再向该地区、该月份的基准概率收缩，收缩程度按时效和可用模型数调整（今天保留 85%，明天保留 72%）。这个概率**尚未用观测校准**，适合横向比较，不应当作真实频率。
+**Chance** = P(score ≥ 55). Each model contributes sigmoid((s−55)/7). The weighted result is then shrunk toward that region's baseline for the month, by an amount that depends on lead time and the number of models available (85% kept today, 72% tomorrow). This chance is **not yet calibrated against observations**. Use it to compare spots, not as a true frequency.
 
-**置信度** 综合以下因素：模型分歧、可用模型数、时效、HRRR 是否可用、AOD 或光路数据是否缺失，以及海雾是否处在 30–70% 的临界区间（雾线进退最难预报）。
+**Confidence** combines: model disagreement, number of models available, lead time, whether HRRR is available, whether AOD or light-path data is missing, and whether fog risk sits in the marginal 30–70% range (the fog line is the hardest thing to forecast).
 
-**最佳时段**：中高云很少时，看日落前 15 分钟到日落后 5 分钟；以高云为主时，看日落后 3–25 分钟；以中云为主时，看日落前 5 分钟到日落后 15 分钟。建议提前 25 分钟到达，需要上山的地点提前 45 分钟。
+**Best window**: with little mid/high cloud, from 15 minutes before to 5 minutes after sunset. With mostly high cloud, 3–25 minutes after sunset. With mostly mid cloud, from 5 minutes before to 15 minutes after. Arrive 25 minutes early, or 45 minutes early at spots that need a hike.
 
-## 已知局限与后续方向
+## Known limitations and next steps
 
-- 网格云量看不出云的纹理和破碎程度。下一步可以接入 GOES-West 卫星实况，用于临近预报。
-- 海平线扇区和海拔是人工标注的近似值，没有做 DEM 视线计算。
-- 海洋层顶在气压层分辨率下很粗（约 200 m 一层）；薄雾层会退回到边界层高度来估算。
-- 概率需要校准：可以收集用户的“实际看到了吗”反馈，或者用历史卫星图做回测。
+- Gridded cloud cover can't show cloud texture or breaks. A next step could add live GOES-West satellite imagery for nowcasting.
+- Horizon sectors and elevations are hand-annotated approximations; there is no DEM line-of-sight calculation.
+- At pressure-level resolution the marine-layer top is coarse (about 200 m per level); shallow fog falls back to boundary-layer height.
+- The chance needs calibration: collect "did you actually see it?" feedback from users, or backtest against historical satellite imagery.

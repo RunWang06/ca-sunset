@@ -1,4 +1,4 @@
-// Data layer: Open-Meteo weather (5 models) + CAMS air quality, fetched directly from the browser.
+// Data layer: Open-Meteo weather (5 models) + CAMS air quality. Language-independent (no UI text).
 import { MODELS, PATH_KM } from './model.js';
 
 const WX = 'https://api.open-meteo.com/v1/forecast';
@@ -56,13 +56,13 @@ async function getJSON(url, timeout) {
     if (!res.ok) {
       let reason = `HTTP ${res.status}`;
       try { reason = (await res.json()).reason || reason; } catch {}
-      throw new FetchError(res.status === 429 ? '调用太频繁，被限流' : reason, res.status === 429 || res.status >= 500, res.status === 429);
+      throw new FetchError(res.status === 429 ? 'ratelimit' : reason, res.status === 429 || res.status >= 500, res.status === 429);
     }
     return await res.json(); // the body download is covered by the same timeout
   } catch (e) {
     if (e instanceof FetchError) throw e;
     // Abort (timeout), dropped connection or a truncated body: all worth retrying.
-    throw new FetchError(ctl.signal.aborted ? '请求超时' : '网络连接中断', true);
+    throw new FetchError(ctl.signal.aborted ? 'timeout' : 'network', true);
   } finally { clearTimeout(t); }
 }
 
@@ -184,10 +184,12 @@ export async function fetchAll(spots, azimuths, startDate, { onProgress = () => 
     fetchPoints(WX, obsPts, { ...dates, cell_selection: 'nearest' }, PROFILE_MODELS, PROFILE_VARS, tick, net),
     fetchPoints(AQ, obsPts, { ...dates, domains: 'cams_global' }, null, AQ_VARS, tick, net),
   ]);
-  const labels = ['观景点天气', '日落方向远海云量', '海洋层垂直结构', '空气质量'];
-  const errors = layers.flatMap((l, i) => (l.failed ? [`${labels[i]} ${l.failed}/${l.total} 组失败（${l.reason}）`] : []));
+  // Errors are structured ({ layer, failed, total, reason }); the page words them in its language.
+  // reason is 'timeout' | 'network' | 'ratelimit' or the API's own message.
+  const layerIds = ['obs', 'path', 'profile', 'aq'];
+  const errors = layers.flatMap((l, i) => (l.failed ? [{ layer: layerIds[i], failed: l.failed, total: l.total, reason: l.reason }] : []));
   const [obs, path, profile, aq] = layers.map((l) => (l.failed === l.total ? null : l.locs));
-  if (!obs) throw new Error(errors.join('；') || '无法获取气象数据');
+  if (!obs) throw Object.assign(new Error(errors.map((e) => `${e.layer} ${e.failed}/${e.total} (${e.reason})`).join('; ')), { errors });
   return { startDate, errors, obs, path, profile, aq, pathKeys, pathIndex, azimuths };
 }
 
@@ -225,7 +227,7 @@ export async function loadData(spots, azimuths, startDate, { force = false, onPr
     return { ...data, at: Date.now(), source: 'live' };
   } catch (e) {
     // Nothing usable came back: fall back to the last good download for the same dates, if any.
-    if (cached) return { ...cached.data, at: cached.at, source: 'cache', stale: true, errors: [e.message] };
+    if (cached) return { ...cached.data, at: cached.at, source: 'cache', stale: true, errors: e.errors || [e.message] };
     throw e;
   }
 }

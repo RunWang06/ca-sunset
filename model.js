@@ -23,15 +23,16 @@ export const MODELS = [
   { id: 'gem_seamless', name: 'GEM', w: [0.15, 0.17] },
 ];
 
-export const NOTABLE = 55; // "明显晚霞" threshold used for the probability
+export const NOTABLE = 55; // "notable glow" threshold used for the probability
 
+// Text is returned as i18n keys (+ vars) so the model stays language-independent; see i18n.js.
 export function label(score) {
-  if (score == null) return '数据不足';
-  if (score >= 80) return '火烧云级';
-  if (score >= 65) return '值得去';
-  if (score >= 45) return '不错';
-  if (score >= 25) return '一般';
-  return '平淡';
+  if (score == null) return 'label.na';
+  if (score >= 80) return 'label.fire';
+  if (score >= 65) return 'label.worth';
+  if (score >= 45) return 'label.good';
+  if (score >= 25) return 'label.fair';
+  return 'label.flat';
 }
 
 /** Canvas quality from combined mid/high coverage (0–1). Clear sky still gives a golden sunset. */
@@ -137,7 +138,7 @@ export function forecast(ctx) {
 
   let scored = ctx.members.map((m) => ({ ...m, r: memberScore(m, base) })).filter((m) => m.r);
   if (!scored.length) {
-    return { insufficient: true, score: null, prob: null, label: label(null), ocean, warnings: ['所有气象模型在这个时刻都没有返回数据。'], reasons: [], members: [], timing: timing(sun, null, spot), headline: '数据不足，暂时无法评估' };
+    return { insufficient: true, score: null, prob: null, label: label(null), ocean, warnings: [{ id: 'warn.noData' }], reasons: [], members: [], timing: timing(sun, null, spot), headline: 'hl.na' };
   }
 
   // Fog: is there a marine layer, and is this spot above it?
@@ -175,15 +176,15 @@ export function forecast(ctx) {
   const fogRisk = aboveFog ? null : clamp(fogModel + 0.15 * region.fog[month]);
 
   const aodMissing = aod == null;
-  if (aodMissing) warnings.push('气溶胶（AOD）数据缺失，空气透明度按保守值 0.88 估计。');
-  if (!ctx.pathAvailable) warnings.push('日落方向远海采样点缺少数据，光路通畅度按 0.85 估计。');
-  if (n < 3) warnings.push(`只有 ${n} 个模型返回数据，结果可信度较低。`);
-  if (!hrrr) warnings.push('高分辨率 HRRR 模型此时段无数据（常见于 30 小时以后），海雾判断主要依赖全球模型，可能低估低云。');
-  if (f.vis == null) warnings.push('能见度数据缺失（仅 HRRR/GFS 提供）。');
+  if (aodMissing) warnings.push({ id: 'warn.aod' });
+  if (!ctx.pathAvailable) warnings.push({ id: 'warn.path' });
+  if (n < 3) warnings.push({ id: 'warn.few', vars: { n } });
+  if (!hrrr) warnings.push({ id: 'warn.noHrrr' });
+  if (f.vis == null) warnings.push({ id: 'warn.noVis' });
 
   let conf = 1 - spread / 28 - (n < 3 ? 0.25 : 0) - day * 0.12 - (aodMissing ? 0.05 : 0) - (ctx.pathAvailable ? 0 : 0.1) - (hrrr ? 0 : 0.1);
   if (!aboveFog && fogRisk >= 0.3 && fogRisk <= 0.7) conf -= 0.1; // marginal fog is the hardest call on this coast
-  const confidence = { level: conf >= 0.6 ? '高' : conf >= 0.35 ? '中' : '低', spread: Math.round(spread), value: conf };
+  const confidence = { level: conf >= 0.6 ? 'high' : conf >= 0.35 ? 'mid' : 'low', spread: Math.round(spread), value: conf };
 
   const out = {
     insufficient: false, score: Math.round(score), label: label(score), prob, probRaw, confidence, ocean, aboveFog, mlTop,
@@ -195,74 +196,77 @@ export function forecast(ctx) {
   };
   out.greenFlash = ocean && f.light > 0.9 && (f.farLow ?? 1) < 0.1 && (aod ?? 1) < 0.12 && (f.cv ?? 1) < 0.4 && (fogRisk ?? 0) < 0.2;
   out.timing = timing(sun, f, spot);
-  out.reasons = reasons(out, sun, spot, region, month);
+  out.reasons = reasons(out, sun, spot);
   out.headline = headline(out);
   return out;
 }
 
 export function timing(sun, f, spot) {
   const min = 60000, s = sun.sunset;
-  let peak, peakNote;
+  let peak, peakKey;
   const highShare = f && f.high != null && f.mid != null ? f.high / (f.high + f.mid + 1e-6) : 0.5;
-  if (!f || (f.cv ?? 0) < 0.15) { peak = [s - 15 * min, s + 5 * min]; peakNote = '天空较干净：太阳落入海平线前后最好看，之后颜色较淡。'; }
-  else if (highShare >= 0.6) { peak = [s + 3 * min, s + 25 * min]; peakNote = '以高云（卷云）为主：余晖通常在日落后 5–20 分钟最红，别太早离开。'; }
-  else { peak = [s - 5 * min, s + 15 * min]; peakNote = '以中云为主：日落前后 15 分钟内最精彩。'; }
+  if (!f || (f.cv ?? 0) < 0.15) { peak = [s - 15 * min, s + 5 * min]; peakKey = 'peak.clear'; }
+  else if (highShare >= 0.6) { peak = [s + 3 * min, s + 25 * min]; peakKey = 'peak.high'; }
+  else { peak = [s - 5 * min, s + 15 * min]; peakKey = 'peak.mid'; }
   const lead = spot.hike ? 45 : 25;
-  return { arrive: s - lead * min, sunset: s, peakStart: peak[0], peakEnd: peak[1], dusk: sun.dusk, peakNote, lead };
+  return { arrive: s - lead * min, sunset: s, peakStart: peak[0], peakEnd: peak[1], dusk: sun.dusk, peakKey, lead };
 }
 
-function reasons(o, sun, spot, region, month) {
+function reasons(o, sun, spot) {
   const f = o.factors, r = [];
+  const add = (tone, k, id, vars) => r.push({ tone, k, id, vars });
   const cv = pct(f.cv ?? 0);
-  const kind = (f.high ?? 0) > (f.mid ?? 0) ? '以卷云等高云为主' : '以高积云等中云为主';
-  if (o.aboveFog) r.push({ tone: 'good', k: 'canvas', text: `观景点海拔约 ${spot.elev} m，预计高于海洋层顶（约 ${o.mlTop} m）——有机会俯瞰被夕阳染色的云海。` });
-  if ((f.cv ?? 0) < 0.12) r.push({ tone: 'neutral', k: 'canvas', text: '西边中高云很少：多半是干净的金色落日，难出现大片火烧云。' });
-  else if (f.cv < 0.3) r.push({ tone: 'neutral', k: 'canvas', text: `中高云偏少（约 ${cv}%），可能只有零星云彩被染色。` });
-  else if (f.cv <= 0.75) r.push({ tone: 'good', k: 'canvas', text: `西边天空约 ${cv}% 中高云（${kind}）——晚霞的“画布”充足。` });
-  else r.push({ tone: 'bad', k: 'canvas', text: `中高云接近满天（约 ${cv}%），云层太厚时阳光难以照进来。` });
+  if (o.aboveFog) add('good', 'canvas', 'r.aboveFog', { elev: spot.elev, top: o.mlTop });
+  if ((f.cv ?? 0) < 0.12) add('neutral', 'canvas', 'r.canvasNone');
+  else if (f.cv < 0.3) add('neutral', 'canvas', 'r.canvasFew', { cv });
+  else if (f.cv <= 0.75) add('good', 'canvas', 'r.canvasGood', { cv, kind: (f.high ?? 0) > (f.mid ?? 0) ? 'high' : 'mid' });
+  else add('bad', 'canvas', 'r.canvasThick', { cv });
 
-  const farLow = pct(f.farLow ?? 0);
-  if (f.light >= 0.85) r.push({ tone: 'good', k: 'light', text: '日落方向 75–250 km 的远海低云少，阳光能从云底下方照亮云层。' });
-  else if (f.light >= 0.55) r.push({ tone: 'neutral', k: 'light', text: `日落方向远海有部分低云（约 ${farLow}%），余晖可能被削弱。` });
-  else r.push({ tone: 'bad', k: 'light', text: `日落方向远海有成片低云/云堤（约 ${farLow}%），太阳可能提前没入云中、照不亮天空。` });
+  const fl = pct(f.farLow ?? 0);
+  if (f.light >= 0.85) add('good', 'light', 'r.lightGood');
+  else if (f.light >= 0.55) add('neutral', 'light', 'r.lightPart', { fl });
+  else add('bad', 'light', 'r.lightBad', { fl });
 
   if (!o.aboveFog) {
-    const fr = pct(o.fogRisk);
-    const hint = o.hrrrLow != null && o.globalLow != null && o.hrrrLow - o.globalLow > 0.35
-      ? `高分辨率 HRRR 显示约 ${pct(o.hrrrLow)}% 低云，全球模式只有 ${pct(o.globalLow)}%，后者常低估海洋层。` : '';
-    const inv = (f.heur ?? 0) > 0.5 ? '近地面逆温强、湿度高，典型的海洋层天气。' : '';
-    if (o.fogRisk >= 0.6) r.push({ tone: 'bad', k: 'local', text: `本地低云/海雾风险高（约 ${fr}%）：在海边平地可能什么都看不到。${hint}${inv}` });
-    else if (o.fogRisk >= 0.3) r.push({ tone: 'neutral', k: 'local', text: `有一定海雾/低云风险（约 ${fr}%），雾线进退很难准确预报。${hint}${inv}` });
-    else r.push({ tone: 'good', k: 'local', text: '观景点附近低云和海雾少，视线开阔。' });
-    if (f.vis != null && f.vis < 5000) r.push({ tone: 'bad', k: 'local', text: `能见度只有约 ${(f.vis / 1000).toFixed(1)} km。` });
+    const fog = {
+      fr: pct(o.fogRisk),
+      // Call out HRRR vs global disagreement: the global models routinely miss the marine layer.
+      ...(o.hrrrLow != null && o.globalLow != null && o.hrrrLow - o.globalLow > 0.35 ? { hrrr: pct(o.hrrrLow), glob: pct(o.globalLow) } : {}),
+      inv: (f.heur ?? 0) > 0.5,
+    };
+    if (o.fogRisk >= 0.6) add('bad', 'local', 'r.fogHigh', fog);
+    else if (o.fogRisk >= 0.3) add('neutral', 'local', 'r.fogMid', fog);
+    else add('good', 'local', 'r.fogLow');
+    if (f.vis != null && f.vis < 5000) add('bad', 'local', 'r.visLow', { km: (f.vis / 1000).toFixed(1) });
   }
 
-  if (o.aod == null) r.push({ tone: 'neutral', k: 'clarity', text: '缺少气溶胶数据，空气透明度按保守值估计。' });
-  else if (o.aod < 0.1) r.push({ tone: 'good', k: 'clarity', text: `空气通透（AOD ${o.aod.toFixed(2)}），颜色会更干净饱和。` });
-  else if (o.aod <= 0.3) r.push({ tone: 'neutral', k: 'clarity', text: `轻度气溶胶（AOD ${o.aod.toFixed(2)}），色调可能更暖但稍发朦。` });
-  else r.push({ tone: 'bad', k: 'clarity', text: `烟霾较重（AOD ${o.aod.toFixed(2)}${o.pm25 != null ? `，PM2.5 ${Math.round(o.pm25)}` : ''}）：太阳偏暗红，云彩对比度降低。` });
+  if (o.aod == null) add('neutral', 'clarity', 'r.aodNone');
+  else if (o.aod < 0.1) add('good', 'clarity', 'r.aodClean', { aod: o.aod.toFixed(2) });
+  else if (o.aod <= 0.3) add('neutral', 'clarity', 'r.aodLight', { aod: o.aod.toFixed(2) });
+  else add('bad', 'clarity', 'r.aodHeavy', { aod: o.aod.toFixed(2), pm25: o.pm25 != null ? Math.round(o.pm25) : null });
 
-  if (o.ocean) r.push({ tone: 'good', k: 'horizon', text: `太阳落向开阔海平线（方位 ${Math.round(sun.azimuth)}°）。` });
-  else r.push({ tone: 'neutral', k: 'horizon', text: `这里日落方向（${Math.round(sun.azimuth)}°）被陆地或山体挡住，太阳会提前消失，但头顶的云仍能被照亮。` });
+  const az = Math.round(sun.azimuth);
+  if (o.ocean) add('good', 'horizon', 'r.horizonOcean', { az });
+  else add('neutral', 'horizon', 'r.horizonLand', { az });
 
-  if (o.confidence.spread >= 18) r.push({ tone: 'neutral', k: 'model', text: `各模型分歧大（相差约 ±${o.confidence.spread} 分），结果不稳定，出发前建议再刷新一次。` });
-  else if (o.members.filter((m) => m.score != null).length >= 4 && o.confidence.spread <= 8 && !(o.hrrrLow != null && o.globalLow != null && Math.abs(o.hrrrLow - o.globalLow) > 0.35)) r.push({ tone: 'good', k: 'model', text: '多个气象模型的判断比较一致。' });
-  if (o.greenFlash) r.push({ tone: 'good', k: 'horizon', text: '海平线干净、空气通透：日落最后一刻有机会看到绿闪。' });
+  if (o.confidence.spread >= 18) add('neutral', 'model', 'r.modelSplit', { n: o.confidence.spread });
+  else if (o.members.filter((m) => m.score != null).length >= 4 && o.confidence.spread <= 8 && !(o.hrrrLow != null && o.globalLow != null && Math.abs(o.hrrrLow - o.globalLow) > 0.35)) add('good', 'model', 'r.modelAgree');
+  if (o.greenFlash) add('good', 'horizon', 'r.greenFlash');
   return r;
 }
 
 function headline(o) {
-  if (o.insufficient) return '数据不足，暂时无法评估';
+  if (o.insufficient) return 'hl.na';
   const f = o.factors;
-  if (o.aboveFog && o.score >= 45) return '有望在雾层之上看云海晚霞';
-  if (o.score >= 65) return '中高云充足、光路通畅，值得专程去';
-  if (f.local < 0.55) return '本地海雾/低云可能挡住视线';
-  if (f.light < 0.55) return '远海低云挡光，余晖可能偏弱';
-  if (f.clarity < 0.8) return '烟霾较重，颜色发闷';
-  if ((f.cv ?? 0) > 0.75) return '云层偏厚，阳光可能透不进来';
-  if ((f.cv ?? 0) < 0.15) return '天空干净，适合看金色落日，难有火烧云';
-  if (f.local < 0.75) return '有晚霞的云，但海雾风险不小';
-  if (f.light < 0.75) return '有晚霞的云，但远海低云可能挡光';
-  if (o.score >= 45) return '有一定晚霞机会，条件中等';
-  return '云彩不多，晚霞机会有限';
+  if (o.aboveFog && o.score >= 45) return 'hl.aboveFog';
+  if (o.score >= 65) return 'hl.great';
+  if (f.local < 0.55) return 'hl.fog';
+  if (f.light < 0.55) return 'hl.light';
+  if (f.clarity < 0.8) return 'hl.haze';
+  if ((f.cv ?? 0) > 0.75) return 'hl.thick';
+  if ((f.cv ?? 0) < 0.15) return 'hl.clear';
+  if (f.local < 0.75) return 'hl.fogSome';
+  if (f.light < 0.75) return 'hl.lightSome';
+  if (o.score >= 45) return 'hl.fair';
+  return 'hl.few';
 }

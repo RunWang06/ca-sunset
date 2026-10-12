@@ -237,9 +237,24 @@ h1 { font-size: 18px; margin: 0; letter-spacing: .02em; }
 .btn.sec { background: var(--card); color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* English names */
-.en { font-weight: 400; color: var(--ink-3); font-size: .82em; margin-left: 4px; }
-.chips .en { margin-left: 5px; color: inherit; opacity: .7; font-size: 11.5px; }
+/* Secondary-language names */
+.alt { font-weight: 400; color: var(--ink-3); font-size: .82em; margin-left: 4px; }
+.chips .alt { margin-left: 5px; color: inherit; opacity: .7; font-size: 11.5px; }
 .rb .ne { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .leaflet-tooltip small { color: #666; }
-.spot .nm .en, .near .en { display: block; margin-left: 0; font-size: 12px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
+.spot .nm .alt, .near .alt { display: block; margin-left: 0; font-size: 12px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
+
+/* Language: blocks marked data-lang show only for the active language */
+html[lang="en"] [data-lang="zh"], html:not([lang="en"]) [data-lang="en"] { display: none !important; }
+/* The secondary-language site name sits on its own small line so the header never collides with the buttons */
+h1 .alt { display: block; margin: 0; font-size: 12px; line-height: 1.3; }
+.brand > div { min-width: 0; }
+.top-actions { display: flex; gap: 6px; flex: none; }
+#langBtn { min-width: 44px; font-weight: 600; }
+.ampm { font-size: .6em; font-weight: 600; margin-left: 1px; }
+#methodBtn .short { display: none; }
+@media (max-width: 480px) {
+  h1 { font-size: 17px; }
+  #methodBtn .long { display: none; }
+  #methodBtn .short { display: inline; }
+}
