@@ -371,6 +371,8 @@ function renderSheet() {
       <p class="headline">${esc(tr(r.label))} · ${esc(tr(r.headline))}</p>
     </div>
 
+    ${feedbackCard(s, r)}
+
     <div class="card">
       <h3>${esc(tr('card.when', { day: lang === 'en' ? dayWord.toLowerCase() : dayWord }))}</h3>
       <div class="tl"><div class="tl-bar"></div>
@@ -439,6 +441,41 @@ function renderSheet() {
       <p class="factor-note">${tr('region.disclaimer')}</p>
     </div>
   `;
+}
+
+// ---------- "did you see it?" feedback ----------
+// After today's sunset at a spot, one tap reports what was actually seen, so the chance can
+// later be calibrated. Sent as an anonymous GoatCounter event; one answer per spot per day per browser.
+const FB_ANSWERS = { glow: 'fb.glow', some: 'fb.some', none: 'fb.none' };
+const fbSent = new Map(); // fallback when localStorage is unavailable
+const fbKey = (date, id) => `ca-sunset-fb:${date}:${id}`;
+function fbAnswer(date, id) {
+  try { const a = localStorage.getItem(fbKey(date, id)); if (a) return a; } catch {}
+  return fbSent.get(fbKey(date, id)) ?? null;
+}
+function feedbackCard(s, r) {
+  const date = state.dates[0];
+  if (state.day !== 0 || r.score == null || Date.now() < r.sun.sunset || laDate(Date.now()) !== date) return '';
+  const done = fbAnswer(date, s.id);
+  return `<div class="card fb" id="fbCard">
+      <h3>${tr('fb.title')}</h3>
+      ${done && FB_ANSWERS[done]
+    ? `<p class="fb-done">${esc(tr('fb.thanks', { a: tr(FB_ANSWERS[done]) }))}</p>`
+    : `<div class="fb-opts">${Object.entries(FB_ANSWERS).map(([a, k]) => `<button class="ghost" data-fb="${a}">${tr(k)}</button>`).join('')}</div>`}
+      <p class="factor-note">${tr('fb.note')}</p>
+    </div>`;
+}
+function sendFeedback(answer) {
+  const idx = SPOTS.findIndex((x) => x.id === state.selected);
+  if (idx < 0 || state.day !== 0 || !FB_ANSWERS[answer]) return;
+  const s = SPOTS[idx], r = state.results[0][idx], date = state.dates[0];
+  if (fbAnswer(date, s.id)) return;
+  const prob = r.prob == null ? 'na' : Math.round(r.prob * 100);
+  const path = `feedback/${date}/${s.id}/${answer}/score-${r.score}/prob-${prob}/conf-${r.confidence?.level ?? 'na'}/${lang}`;
+  try { window.goatcounter?.count?.({ path, title: `${s.en} · ${answer}`, referrer: '', event: true }); } catch {}
+  fbSent.set(fbKey(date, s.id), answer);
+  try { localStorage.setItem(fbKey(date, s.id), answer); } catch {}
+  $('#fbCard').outerHTML = feedbackCard(s, r);
 }
 
 function openSpot(id, { pan = true } = {}) {
@@ -516,6 +553,7 @@ function bind() {
   $('#sheetBody').addEventListener('click', (e) => {
     if (e.target.closest('#closeSheet')) return closeSheet();
     if (e.target.closest('#shareBtn')) return share();
+    const fb = e.target.closest('[data-fb]'); if (fb) return sendFeedback(fb.dataset.fb);
     const li = e.target.closest('.near li'); if (li) openSpot(li.dataset.id);
   });
   $('#scrim').addEventListener('click', closeSheet);

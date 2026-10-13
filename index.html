@@ -65,9 +65,11 @@
 
   <footer class="foot">
     <div data-lang="zh">气象数据：<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>（HRRR · ECMWF · GFS · ICON · GEM）· 空气质量：CAMS · 底图 © Esri, OpenStreetMap。<br>
-    实验性模型，不是官方气象预报。</div>
+    实验性模型，不是官方气象预报。<br>
+    本站用 GoatCounter 统计匿名访问次数（不用 Cookie），也匿名记录“看到晚霞了吗”的回答，不收集任何个人信息或位置。</div>
     <div data-lang="en">Weather data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (HRRR · ECMWF · GFS · ICON · GEM) · Air quality: CAMS · Basemap © Esri, OpenStreetMap.<br>
-    An experimental model, not an official weather forecast.</div>
+    An experimental model, not an official weather forecast.<br>
+    This site counts anonymous visits with GoatCounter (no cookies) and anonymously records “Did you see it?” answers; no personal data or location is collected.</div>
   </footer>
 
   <aside id="sheet" class="sheet" aria-modal="true" role="dialog" aria-labelledby="sheetTitle" hidden>
@@ -100,6 +102,8 @@
       <li>雾线位置、雾层厚度是最大的不确定来源；出发前请再看一眼实时卫星云图或网络摄像头。</li>
       <li>数据在云端每小时更新一次；各气象模型通常每 1–6 小时发布新一轮预报。</li>
     </ul>
+    <h3>隐私</h3>
+    <p>本站用 GoatCounter 统计匿名访问次数（不用 Cookie）；日落后可回答“看到晚霞了吗”，只记录地点、日期、当时显示的评分/概率/置信度、你的选择和界面语言，用来校准概率。不收集任何个人信息或位置。</p>
     </div>
 
     <div data-lang="en">
@@ -125,9 +129,12 @@
       <li>Where the fog line sits and how thick the fog is are the biggest uncertainties — check a live satellite image or webcam before you go.</li>
       <li>Data is refreshed hourly in the cloud; the weather models typically publish new runs every 1–6 hours.</li>
     </ul>
+    <h3>Privacy</h3>
+    <p>Anonymous visit counts are collected with GoatCounter (no cookies). After sunset you can answer “Did you see it?”; only the spot, date, the score / chance / confidence shown, your answer and the page language are recorded, to calibrate the chance. No personal data or location is collected.</p>
     </div>
   </dialog>
 
+  <script data-goatcounter="https://runwang06.goatcounter.com/count" async src="vendor/goatcounter/count.js"></script>
   <script src="vendor/leaflet/leaflet.js"></script>
   <script type="module" src="app.js"></script>
 </body>
