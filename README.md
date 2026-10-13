@@ -6,7 +6,7 @@
 
 A sunset and afterglow forecast for the entire California coast: 58 cities, beaches and viewpoints from Crescent City to Coronado. Sunsets only. It answers three questions: **where is worth going today or tomorrow, when to arrive, and why**.
 
-A fully static site with no backend and no API keys. Anonymous visit counts and "Did you see it?" answers go to GoatCounter (see below). Weather data is fetched once an hour by GitHub Actions and deployed to GitHub Pages together with the site (see "How data reaches the browser" below).
+A fully static site with no backend and no API keys. Anonymous visit counts go to GoatCounter (see below). Weather data is fetched once an hour by GitHub Actions and deployed to GitHub Pages together with the site (see "How data reaches the browser" below).
 
 ## Run locally
 
@@ -50,21 +50,9 @@ Note: GitHub pauses scheduled workflows after 60 days without commits to the rep
 - **All text lives in `i18n.js`**, with Chinese and English side by side. The model (`model.js`) and the data (`data.js`, `data.json`) contain no UI text. They output only "text key + numbers", and the page renders them in the current language. So switching languages never refetches data, and the cloud only needs one copy of it.
 - **When you change any text, change both languages.** `tests.html` checks this automatically: both languages define the same keys, placeholders are consistent, every key used by the page and the model exists, and there are no unused entries.
 
-## Visitor stats and "Did you see it?" feedback
+## Visitor stats
 
-The site collects two kinds of anonymous data, both through [GoatCounter](https://www.goatcounter.com/) (dashboard: https://runwang06.goatcounter.com). No cookies, no accounts, no location, no personal data. The same statement is shown in the page footer and in the "Method & limits" dialog, in both languages.
-
-1. **Visit counts**, to see how many people actually use the site. GoatCounter doesn't use cookies or store IP addresses; per page view it keeps the path, referrer, browser/OS, screen size and a country derived from the IP. `vendor/goatcounter/count.js` is GoatCounter's script (ISC license) served from this repo, like Leaflet. Visits from `localhost` are not counted.
-2. **"Did you see it?"**, to calibrate the chance, which is still a heuristic. After today's sunset at a spot, its detail panel asks one question: a notable glow / some color / nothing (fog or clear sky). One tap sends a GoatCounter event whose path holds everything needed for calibration:
-
-   ```
-   feedback/<date>/<spot id>/<glow|some|none>/score-<0–100>/prob-<0–100|na>/conf-<high|mid|low>/<zh|en>
-   e.g. feedback/2026-10-13/trinidad/some/score-72/prob-68/conf-low/zh
-   ```
-
-   The score, chance and confidence are the values shown on screen at that moment. Each browser can answer once per spot per day (stored in `localStorage` as `ca-sunset-fb:<date>:<spot id>`). The question appears only for today, only after that spot's sunset, and only while it is still the same day in California. The "Nearest to me" location never leaves the browser and is not part of the feedback.
-
-To analyze: in GoatCounter, export the hits as CSV (Settings → Export), keep the rows whose path starts with `feedback/`, and split the path on `/`. Comparing the forecast chance with the share of "glow" answers per chance bin gives a reliability curve. Keep in mind that ad blockers can block GoatCounter and that answers are self-selected (people who went out to watch).
+Anonymous visit counts are collected with [GoatCounter](https://www.goatcounter.com/) (dashboard: https://runwang06.goatcounter.com) to see how many people actually use the site. No cookies, no accounts, no location, no personal data; GoatCounter doesn't store IP addresses. Per page view it keeps the path, referrer, browser/OS, screen size and a country derived from the IP. The same statement is shown in the page footer and in the "Method & limits" dialog, in both languages. `vendor/goatcounter/count.js` is GoatCounter's script (ISC license) served from this repo, like Leaflet. Visits from `localhost` are not counted.
 
 ## Files
 
@@ -79,7 +67,7 @@ To analyze: in GoatCounter, export the hits as CSV (Settings → Export), keep t
 | `app.js` | UI: recommendation card, best spot per region, map, ranking, detail panel, language switch |
 | `tests.html` | 35 tests: the model (synthetic scenarios) and translation completeness |
 | `vendor/leaflet/` | Leaflet 1.9.4 map library (BSD-2-Clause, see its `LICENSE`), served from this repo so the map doesn't depend on a third-party CDN |
-| `vendor/goatcounter/` | GoatCounter's `count.js` (ISC license) for the anonymous visit and feedback counts above |
+| `vendor/goatcounter/` | GoatCounter's `count.js` (ISC license) for the anonymous visit counts above |
 
 ## Data sources
 
@@ -122,4 +110,4 @@ score = 100 × canvas × light path × local view × air clarity × horizon
 - Gridded cloud cover can't show cloud texture or breaks. A next step could add live GOES-West satellite imagery for nowcasting.
 - Horizon sectors and elevations are hand-annotated approximations; there is no DEM line-of-sight calculation.
 - At pressure-level resolution the marine-layer top is coarse (about 200 m per level); shallow fog falls back to boundary-layer height.
-- The chance needs calibration. "Did you see it?" answers are now collected (see above); once there are enough, fit the chance to them, or backtest against historical satellite imagery.
+- The chance needs calibration: collect "did you actually see it?" feedback from users, or backtest against historical satellite imagery.

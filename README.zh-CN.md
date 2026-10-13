@@ -6,7 +6,7 @@
 
 覆盖加州整条海岸（58 个城市、海滩和观景点，从 Crescent City 到 Coronado）的日落与火烧云预测。只看日落，回答三个问题：**今天/明天哪里值得去、几点到、为什么**。
 
-纯静态网站：没有后端，也不需要 API key。匿名访问统计和“看到晚霞了吗”的回答发送到 GoatCounter（见下文）。气象数据由 GitHub Actions 每小时预先获取一次，和网站一起部署到 GitHub Pages（见下文“数据怎么到达浏览器”）。
+纯静态网站：没有后端，也不需要 API key。匿名访问统计发送到 GoatCounter（见下文）。气象数据由 GitHub Actions 每小时预先获取一次，和网站一起部署到 GitHub Pages（见下文“数据怎么到达浏览器”）。
 
 ## 本地运行
 
@@ -50,21 +50,9 @@ Open-Meteo 免费接口按 IP 限流：每分钟约 600 次、每小时 5,000 �
 - **所有文字都集中在 `i18n.js`**，中文和英文并排写。模型（`model.js`）和数据（`data.js`、`data.json`）不包含任何界面文字，只输出“文字编号 + 数字”，由页面按当前语言显示。所以切换语言不会重新获取数据，云端数据也只需要一份。
 - **改文字时，中英两份都要改。** `tests.html` 会自动检查：两种语言的条目是否一一对应、占位符是否一致、页面和模型用到的每个编号是否都存在，以及有没有多余的条目。
 
-## 访问统计与“看到晚霞了吗”反馈
+## 访问统计
 
-网站收集两类匿名数据，都通过 [GoatCounter](https://www.goatcounter.com/)（后台：https://runwang06.goatcounter.com）。不用 Cookie、不需要账号、不收集位置和任何个人信息。页面底部和“方法与局限”弹窗里都有中英文说明。
-
-1. **访问次数**：了解推广后实际有多少人在用。GoatCounter 不用 Cookie、不存 IP；每次访问只记录页面路径、来源网址、浏览器/系统、屏幕尺寸，以及由 IP 推断的国家。`vendor/goatcounter/count.js` 是 GoatCounter 官方脚本（ISC 许可），和 Leaflet 一样放在本仓库里。`localhost` 上的访问不计数。
-2. **“看到晚霞了吗”**：用来校准目前还是启发式估计的发生概率。某个地点今天日落之后，详情页会出现一个问题：看到明显晚霞 / 有些颜色 / 没有（有雾或晴空无云）。点一下就发送一个 GoatCounter 事件，路径里包含校准需要的全部信息：
-
-   ```
-   feedback/<日期>/<地点 id>/<glow|some|none>/score-<0–100>/prob-<0–100|na>/conf-<high|mid|low>/<zh|en>
-   例：feedback/2026-10-13/trinidad/some/score-72/prob-68/conf-low/zh
-   ```
-
-   评分、概率和置信度都是回答时屏幕上显示的数值。每个浏览器每个地点每天只能回答一次（记录在 `localStorage` 的 `ca-sunset-fb:<日期>:<地点 id>`）。问题只在“今天”、该地点日落之后、且加州日期还没变时出现。“离我最近”排序用到的位置只留在浏览器里，不会随反馈发送。
-
-分析方法：在 GoatCounter 后台导出 CSV（Settings → Export），筛出路径以 `feedback/` 开头的行，按 `/` 拆分。把预测概率分档，和每档里回答 glow 的比例对比，就得到可靠性曲线。注意：广告拦截器可能拦截 GoatCounter，而且回答者是自愿的（多半是真去看了的人），样本有偏。
+网站用 [GoatCounter](https://www.goatcounter.com/)（后台：https://runwang06.goatcounter.com）统计匿名访问次数，用来了解实际有多少人在用。不用 Cookie、不需要账号、不收集位置和任何个人信息；GoatCounter 不存 IP。每次访问只记录页面路径、来源网址、浏览器/系统、屏幕尺寸，以及由 IP 推断的国家。页面底部和“方法与局限”弹窗里都有中英文说明。`vendor/goatcounter/count.js` 是 GoatCounter 官方脚本（ISC 许可），和 Leaflet 一样放在本仓库里。`localhost` 上的访问不计数。
 
 ## 文件
 
@@ -79,7 +67,7 @@ Open-Meteo 免费接口按 IP 限流：每分钟约 600 次、每小时 5,000 �
 | `app.js` | 界面：推荐卡、分区最佳、地图、排名、详情页、语言切换 |
 | `tests.html` | 35 项测试：模型（合成场景）和翻译完整性 |
 | `vendor/leaflet/` | 地图库 Leaflet 1.9.4（BSD-2-Clause 许可，见其中的 `LICENSE`），放在本仓库里，地图不再依赖第三方 CDN |
-| `vendor/goatcounter/` | GoatCounter 的 `count.js`（ISC 许可），用于上面的匿名访问统计和反馈 |
+| `vendor/goatcounter/` | GoatCounter 的 `count.js`（ISC 许可），用于上面的匿名访问统计 |
 
 ## 数据来源
 
@@ -122,4 +110,4 @@ score = 100 × 画布 × 光路 × 本地遮挡 × 空气透明度 × 海平线
 - 网格云量看不出云的纹理和破碎程度。下一步可以接入 GOES-West 卫星实况，用于临近预报。
 - 海平线扇区和海拔是人工标注的近似值，没有做 DEM 视线计算。
 - 海洋层顶在气压层分辨率下很粗（约 200 m 一层）；薄雾层会退回到边界层高度来估算。
-- 概率需要校准：现已开始收集“看到晚霞了吗”的回答（见上文），积累足够后据此拟合概率；也可以用历史卫星图做回测。
+- 概率需要校准：可以收集用户的“实际看到了吗”反馈，或者用历史卫星图做回测。
