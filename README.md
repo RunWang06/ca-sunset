@@ -62,6 +62,7 @@ Note: GitHub pauses scheduled workflows after 60 days without commits to the rep
 | `i18n.js` | All Chinese and English text, language detection and switching, language-aware time and date formatting |
 | `app.js` | UI: recommendation card, best spot per region, map, ranking, detail panel, language switch |
 | `tests.html` | 35 tests: the model (synthetic scenarios) and translation completeness |
+| `vendor/leaflet/` | Leaflet 1.9.4 map library (BSD-2-Clause, see its `LICENSE`), served from this repo so the map doesn't depend on a third-party CDN |
 
 ## Data sources
 

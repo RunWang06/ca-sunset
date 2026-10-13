@@ -41,6 +41,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html tests.html app.css *.js .nojekyll _site/
+          cp -R vendor _site/
           if [ -f _data.json ]; then mv _data.json _site/data.json; fi
       - uses: actions/upload-pages-artifact@v4
         if: steps.fetch.outcome == 'success' || github.event_name != 'schedule'
