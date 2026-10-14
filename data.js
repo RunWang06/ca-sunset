@@ -8,8 +8,8 @@ const CACHE_PREFIX = 'ca-sunset-v1:';
 const CACHE_TTL = 30 * 60 * 1000;
 const CHUNK = 60;
 
-const OBS_VARS = ['cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high', 'visibility', 'temperature_2m', 'relative_humidity_2m', 'temperature_925hPa', 'precipitation'];
-const PATH_VARS = ['cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high'];
+export const OBS_VARS = ['cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high', 'visibility', 'temperature_2m', 'relative_humidity_2m', 'temperature_925hPa', 'precipitation'];
+export const PATH_VARS = ['cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high'];
 const PROFILE_VARS = ['cloud_cover_low', 'cloud_cover_1000hPa', 'cloud_cover_975hPa', 'cloud_cover_950hPa', 'cloud_cover_925hPa', 'cloud_cover_900hPa', 'boundary_layer_height'];
 const PROFILE_MODELS = ['ncep_hrrr_conus', 'gfs_global'];
 const AQ_VARS = ['aerosol_optical_depth', 'pm2_5', 'dust'];
@@ -89,7 +89,7 @@ async function limited(fn) {
 // Keep only late-afternoon/evening hours: that is all the model needs, and it keeps the cache small.
 const keepHour = (sec) => { const h = +fmtHour.format(new Date(sec * 1000)); return h >= 14 && h <= 22; };
 
-function parseLocation(loc, models, vars) {
+export function parseLocation(loc, models, vars) {
   const h = loc.hourly || {};
   const idx = (h.time || []).map((t, i) => (keepHour(t) ? i : -1)).filter((i) => i >= 0);
   const out = { t: idx.map((i) => h.time[i]), s: {} };
@@ -275,7 +275,7 @@ function interp(arr, t, T) {
   return t[t.length - 1] === T ? arr[t.length - 1] : null;
 }
 // Smooth over the sunset hour: 30 min before, at, and 30 min after.
-function sample(loc, model, v, Tms) {
+export function sample(loc, model, v, Tms) {
   if (!loc) return null;
   const arr = loc.s[model]?.[v];
   const T = Tms / 1000;

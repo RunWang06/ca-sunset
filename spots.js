@@ -27,6 +27,10 @@ export const REGIONS = [
     id: 'sd', name: '圣地亚哥', en: 'San Diego',
     fog: [0.2, 0.25, 0.3, 0.4, 0.6, 0.65, 0.5, 0.4, 0.35, 0.25, 0.2, 0.2],
     base: [0.26, 0.26, 0.24, 0.18, 0.1, 0.08, 0.14, 0.16, 0.18, 0.22, 0.26, 0.28],
+    // HRRR over-forecasts sunset low cloud here: against airport METARs (Jul–Oct 2026, 450
+    // spot-evenings) its share of the day-0 fog risk at 0.35 instead of 0.5 raised the fog HSS from
+    // 0.39 to 0.47, improving both halves of the period. See backtest/REGIONAL_FOG.md.
+    hrrrFogWeight: 0.35,
   },
 ];
 

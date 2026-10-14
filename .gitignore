@@ -3,3 +3,5 @@
 data.json
 _site/
 _data.json
+backtest/cache/
+backtest/results.json

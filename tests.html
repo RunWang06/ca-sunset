@@ -107,6 +107,16 @@ ok(sf === '06:46 PM' || sf === '06:47 PM', 'SF sunset 2026-10-07 ≈ 18:46 PDT',
 ok(Math.abs(sun.azimuth - 263.5) < 1.5, 'SF sunset azimuth ≈ 263°', sun.azimuth.toFixed(1));
 ok(sunsetInfo('2026-10-07', 37.93, -122.58, 760).elevationGainMin >= 3, 'elevated spot sees a later sunset');
 
+// ---------- regional HRRR fog weight ----------
+{
+  const hrrrFog = mk(obs(0, 0.25, 0.45), clearPath).map((m) => (m.id === 'ncep_hrrr_conus' ? { ...m, path: [{ ...m.path[0], low: 0.9 }, ...m.path.slice(1)] } : m));
+  const sdRegion = REGION_BY_ID.sd, socalRegion = { ...REGION_BY_ID.socal, fog: REGION_BY_ID.sd.fog };
+  const at = (reg, day) => forecast({ spot, sun, day, members: hrrrFog, aq: { aod: 0.06 }, profile: null, region: reg, month: 9, pathAvailable: true }).fogRisk;
+  ok(REGION_BY_ID.sd.hrrrFogWeight === 0.35 && REGIONS.filter((r) => r.hrrrFogWeight != null).length === 1, 'only San Diego lowers HRRR’s fog weight (to 0.35)');
+  ok(at(sdRegion, 0) < at(socalRegion, 0), 'when only HRRR sees fog, San Diego’s day-0 fog risk is lower than elsewhere', `${at(sdRegion, 0).toFixed(2)} vs ${at(socalRegion, 0).toFixed(2)}`);
+  ok(Math.abs(at(sdRegion, 1) - at(socalRegion, 1)) < 1e-9, 'tomorrow’s fog weighting is unchanged everywhere');
+}
+
 // ---------- broken-model detection ----------
 // Synthetic dataset: 40 locations × 24 hours; `cloudy` maps model id → share of samples with mid/high cloud.
 function fakeData(cloudy) {

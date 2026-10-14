@@ -66,6 +66,7 @@ Anonymous visit counts are collected with [GoatCounter](https://www.goatcounter.
 | `i18n.js` | All Chinese and English text, language detection and switching, language-aware time and date formatting |
 | `app.js` | UI: recommendation card, best spot per region, map, ranking, detail panel, language switch |
 | `tests.html` | 43 tests: the model (synthetic scenarios) and translation completeness |
+| `scripts/backtest.mjs`, `backtest/` | Backtest of the weather inputs against ERA5 and airport METARs (`backtest/REPORT.md`), plus the regional HRRR-weight experiment (`backtest/REGIONAL_FOG.md`). Analysis only; not deployed |
 | `vendor/leaflet/` | Leaflet 1.9.4 map library (BSD-2-Clause, see its `LICENSE`), served from this repo so the map doesn't depend on a third-party CDN |
 | `vendor/goatcounter/` | GoatCounter's `count.js` (ISC license) for the anonymous visit counts above |
 
@@ -80,7 +81,7 @@ Anonymous visit counts are collected with [GoatCounter](https://www.goatcounter.
 The earlier version used single-point data and one combined formula. Extending it to the whole coast meant handling three problems separately:
 
 1. **The light path toward the sunset.** Afterglow is sunlight shining up onto cloud bases from below the horizon. What really matters is whether there is a low-cloud bank 75–250 km offshore toward the sun, not just whether there is cloud overhead. The new version samples cloud cover at 25/75/150/250 km along each spot's sunset azimuth: near points count as the "canvas", far points as the "light path". Far points are snapped to 0.1°, 0.25° or 0.5° grids by distance and deduplicated (58 spots → 142 sample points).
-2. **Global models miss the marine layer.** Measured at SF Ocean Beach on 2026-10-07: HRRR showed 100% low cloud, all four global models showed 0%, and it was 13 °C warmer at 925 hPa than at the surface, a classic marine-layer inversion. So the new version (a) builds a fog heuristic from inversion strength × surface humidity to correct each model's low cloud, and (b) gives HRRR extra weight when judging fog risk (50% today, 30% tomorrow).
+2. **Global models miss the marine layer.** Measured at SF Ocean Beach on 2026-10-07: HRRR showed 100% low cloud, all four global models showed 0%, and it was 13 °C warmer at 925 hPa than at the surface, a classic marine-layer inversion. So the new version (a) builds a fog heuristic from inversion strength × surface humidity to correct each model's low cloud, and (b) gives HRRR extra weight when judging fog risk (50% today, 30% tomorrow). San Diego uses 35% today: a backtest against airport observations showed HRRR over-forecasts sunset fog there, and the lower weight was more accurate in both halves of the test period (see `backtest/REGIONAL_FOG.md`).
 3. **Regional and terrain differences.** Each spot uses its own coordinates and elevation, with its open-horizon sector annotated. Santa Cruz, Santa Barbara and Malibu face south, so in summer the sun sets behind land. Viewpoints at 100 m or higher are marked "above the fog" when they are higher than the marine-layer top estimated from HRRR pressure-level cloud cover, which means a chance of a sea-of-fog sunset. Each climate region has its own monthly fog frequency and baseline glow chance.
 
 ## Scoring

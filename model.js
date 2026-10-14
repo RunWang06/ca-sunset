@@ -173,7 +173,8 @@ export function forecast(ctx) {
   const globals = scored.filter((m) => m.id !== 'ncep_hrrr_conus');
   const globalLow = globals.length ? wavg(globals.map((m) => [m.r.low, m.w])) : null;
   // HRRR gets extra say on fog specifically: it is the only member that resolves the marine layer.
-  const wH = hrrr ? (day === 0 ? 0.5 : 0.3) : 0;
+  // Regions can lower it where HRRR is verified to over-forecast fog (spots.js hrrrFogWeight).
+  const wH = hrrr ? (day === 0 ? (region.hrrrFogWeight ?? 0.5) : 0.3) : 0;
   const fogModel = wH * (hrrr?.r.effLow ?? 0) + (0.85 - wH) * (f.effLow ?? 0);
   const fogRisk = aboveFog ? null : clamp(fogModel + 0.15 * region.fog[month]);
 
