@@ -61,7 +61,7 @@ export const STRINGS = {
     'coast.climate': '{region}气候特点：',
 
     // status line
-    'status.loading': '正在获取 5 个气象模型、海洋层结构和空气质量数据{p}…服务器较忙时可能需要半分钟',
+    'status.loading': '正在获取 4 个气象模型、海洋层结构和空气质量数据{p}…服务器较忙时可能需要半分钟',
     'status.stale': '网络不稳定，暂时显示 {age}前（{t}）的数据',
     'status.retry': '重试',
     'status.refresh': '刷新',
@@ -69,6 +69,7 @@ export const STRINGS = {
     'src.prebuilt': '（云端每小时更新）',
     'src.cache': '（本机缓存）',
     'src.live': '（实时获取）',
+    'status.excluded': '{names} 模型数据异常，已自动排除',
     'status.partial': '部分数据没取到，相关地点显示“数据不足”或按保守值估计：{e}',
     'status.todayOver': '今天的日落已经结束，显示明天的预测。',
     'status.autoRetry': '刷新失败，1 分钟后自动重试',
@@ -140,6 +141,7 @@ export const STRINGS = {
     'f.vis': ' · 能见度 {km} km',
     'card.models': '各模型怎么看',
     'models.na': '无数据',
+    'models.excluded': '数据异常，已排除',
     'models.note': '观赏评分是各模型的加权平均；概率看有几个模型达到“明显晚霞”，再按时效和{region}的气候基准收缩。HRRR 分辨率 3 km，最擅长海雾，但只覆盖约 48 小时。',
     'card.near': '附近 110 km 内比较',
     'near.better': '更好',
@@ -161,6 +163,7 @@ export const STRINGS = {
     'warn.few': (v) => `只有 ${v.n} 个模型返回数据，结果可信度较低。`,
     'warn.noHrrr': '高分辨率 HRRR 模型此时段无数据（常见于 30 小时以后），海雾判断主要依赖全球模型，可能低估低云。',
     'warn.noVis': '能见度数据缺失（仅 HRRR/GFS 提供）。',
+    'warn.excluded': '{names} 的中高云数据异常（全海岸几乎都是 0，而其他多数模型明显有云），本次已自动排除，不参与评分。',
 
     // model reasons
     'r.aboveFog': '观景点海拔约 {elev} m，预计高于海洋层顶（约 {top} m）——有机会俯瞰被夕阳染色的云海。',
@@ -251,7 +254,7 @@ export const STRINGS = {
     'rb.arrive': 'by {t}',
     'coast.climate': '{region} climate: ',
 
-    'status.loading': 'Fetching 5 weather models, marine-layer structure and air quality{p}… this can take half a minute when the server is busy',
+    'status.loading': 'Fetching 4 weather models, marine-layer structure and air quality{p}… this can take half a minute when the server is busy',
     'status.stale': 'Connection unstable — showing data from {age} ago ({t})',
     'status.retry': 'Retry',
     'status.refresh': 'Refresh',
@@ -259,6 +262,7 @@ export const STRINGS = {
     'src.prebuilt': ' (refreshed hourly in the cloud)',
     'src.cache': ' (cached on this device)',
     'src.live': ' (fetched live)',
+    'status.excluded': '{names} model data looks broken and was excluded',
     'status.partial': 'Some data is missing; affected spots show “No data” or use conservative estimates: {e}',
     'status.todayOver': 'Today’s sunsets are over — showing tomorrow.',
     'status.autoRetry': 'Refresh failed; retrying in 1 minute',
@@ -328,6 +332,7 @@ export const STRINGS = {
     'f.vis': ' · visibility {km} km',
     'card.models': 'What each model says',
     'models.na': 'no data',
+    'models.excluded': 'bad data, excluded',
     'models.note': 'The viewing score is a weighted average of the models. The chance counts how many models reach a notable glow, then shrinks toward the {region} climate baseline depending on lead time. HRRR (3 km) is best at fog but only covers about 48 hours.',
     'card.near': 'Nearby (within 110 km)',
     'near.better': 'Better',
@@ -347,6 +352,7 @@ export const STRINGS = {
     'warn.few': (v) => `Only ${v.n} model${v.n === 1 ? '' : 's'} returned data, so this forecast is less reliable.`,
     'warn.noHrrr': 'The high-resolution HRRR model has no data for this time (common beyond ~30 hours), so fog relies on global models, which may underestimate low cloud.',
     'warn.noVis': 'Visibility data is missing (only HRRR and GFS provide it).',
+    'warn.excluded': '{names} reported almost no mid/high cloud anywhere on the coast while most other models clearly show cloud, so it was excluded from scoring automatically.',
 
     'r.aboveFog': 'At about {elev} m you should be above the marine layer (top ~{top} m) — a chance to look down on a sunlit sea of fog.',
     'r.canvasNone': 'Few mid/high clouds to the west: most likely a clean golden sunset rather than a fiery sky.',

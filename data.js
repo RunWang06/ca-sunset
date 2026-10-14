@@ -1,4 +1,4 @@
-// Data layer: Open-Meteo weather (5 models) + CAMS air quality. Language-independent (no UI text).
+// Data layer: Open-Meteo weather (4 models) + CAMS air quality. Language-independent (no UI text).
 import { MODELS, PATH_KM } from './model.js';
 
 const WX = 'https://api.open-meteo.com/v1/forecast';
@@ -232,6 +232,33 @@ export async function loadData(spots, azimuths, startDate, { force = false, onPr
   }
 }
 
+// ---------- data sanity ----------
+/**
+ * Flag a model whose mid AND high cloud are (almost) never above zero across every spot and hour,
+ * while most of the other models clearly do show mid/high cloud. That pattern is a broken data feed
+ * (as happened with GEM), not a clear sky: on a genuinely clear day the other models agree, so nothing
+ * is flagged. Returns [{ id, name }] for the models to leave out.
+ */
+export function detectBrokenModels(data) {
+  const locs = [...(data.obs || []), ...(data.path || [])].filter(Boolean);
+  const stat = Object.fromEntries(MODELS.map((M) => {
+    let n = 0, nz = 0;
+    for (const l of locs) for (const v of ['cloud_cover_mid', 'cloud_cover_high']) {
+      for (const x of l.s[M.id]?.[v] || []) if (x != null) { n++; if (x > 0) nz++; }
+    }
+    return [M.id, { n, nz }];
+  }));
+  const MIN_SAMPLES = 100;
+  const enough = (id) => stat[id].n >= MIN_SAMPLES;
+  const cloudy = (id) => enough(id) && stat[id].nz >= Math.max(20, 0.05 * stat[id].n);
+  return MODELS.filter((M) => {
+    const s = stat[M.id];
+    if (!enough(M.id) || s.nz > 0.005 * s.n) return false;
+    const others = MODELS.filter((o) => o.id !== M.id && enough(o.id));
+    return others.length >= 2 && others.filter((o) => cloudy(o.id)).length > others.length / 2;
+  }).map((M) => ({ id: M.id, name: M.name }));
+}
+
 // ---------- sampling ----------
 function interp(arr, t, T) {
   if (!arr || !t.length) return null;
@@ -259,11 +286,15 @@ function sample(loc, model, v, Tms) {
 }
 const frac = (x) => (x == null ? null : Math.max(0, Math.min(1, x / 100)));
 
-/** Assemble the model-input context for one spot, one day, given the loaded dataset. */
-export function buildInputs(data, spotIdx, spot, sunsetMs, day) {
+/**
+ * Assemble the model-input context for one spot, one day, given the loaded dataset.
+ * excluded: models flagged by detectBrokenModels(), left out of the ensemble.
+ */
+export function buildInputs(data, spotIdx, spot, sunsetMs, day, excluded = []) {
   const obsLoc = data.obs?.[spotIdx];
   const pathLocs = (data.pathIndex[spot.id] || []).map((i) => data.path?.[i]);
-  const members = MODELS.map((M) => {
+  const skip = new Set(excluded.map((e) => e.id));
+  const members = MODELS.filter((M) => !skip.has(M.id)).map((M) => {
     const obs = obsLoc && {
       low: frac(sample(obsLoc, M.id, 'cloud_cover_low', sunsetMs)),
       mid: frac(sample(obsLoc, M.id, 'cloud_cover_mid', sunsetMs)),

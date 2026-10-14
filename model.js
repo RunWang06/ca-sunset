@@ -15,12 +15,14 @@ export const PATH_KM = [0, 25, 75, 150, 250];
 
 // Member weights by day index [today, tomorrow]. HRRR (3 km) resolves the marine layer far better
 // than the global models but degrades past ~24 h, so its weight drops tomorrow.
+// GEM was dropped: Open-Meteo's GEM mid/high cloud layers come back as 0 everywhere (checked
+// 2026-10-13 across all spots and hours while total cover was non-zero), which pinned it at the
+// clear-sky score and inflated the spread. detectBrokenModels() in data.js guards against a repeat.
 export const MODELS = [
-  { id: 'ncep_hrrr_conus', name: 'HRRR', w: [0.32, 0.2] },
-  { id: 'ecmwf_ifs025', name: 'ECMWF', w: [0.23, 0.28] },
-  { id: 'gfs_global', name: 'GFS', w: [0.15, 0.17] },
-  { id: 'icon_seamless', name: 'ICON', w: [0.15, 0.18] },
-  { id: 'gem_seamless', name: 'GEM', w: [0.15, 0.17] },
+  { id: 'ncep_hrrr_conus', name: 'HRRR', w: [0.35, 0.22] },
+  { id: 'ecmwf_ifs025', name: 'ECMWF', w: [0.27, 0.32] },
+  { id: 'gfs_global', name: 'GFS', w: [0.19, 0.23] },
+  { id: 'icon_seamless', name: 'ICON', w: [0.19, 0.23] },
 ];
 
 export const NOTABLE = 55; // "notable glow" threshold used for the probability
@@ -127,7 +129,7 @@ export function marineLayerTop(profile) {
 /**
  * Full forecast for one spot and one evening.
  * ctx: { spot, sun:{sunset,dusk,azimuth}, day, members:[{id,name,w,path}], aq:{aod,pm25,dust}|null,
- *        profile, region:{fog,base}, month, pathAvailable }
+ *        profile, region:{fog,base}, month, pathAvailable, excluded:[{id,name}] }
  */
 export function forecast(ctx) {
   const { spot, sun, day, aq, region, month } = ctx;
@@ -181,6 +183,7 @@ export function forecast(ctx) {
   if (n < 3) warnings.push({ id: 'warn.few', vars: { n } });
   if (!hrrr) warnings.push({ id: 'warn.noHrrr' });
   if (f.vis == null) warnings.push({ id: 'warn.noVis' });
+  if (ctx.excluded?.length) warnings.push({ id: 'warn.excluded', vars: { names: ctx.excluded.map((e) => e.name).join(' / ') } });
 
   let conf = 1 - spread / 28 - (n < 3 ? 0.25 : 0) - day * 0.12 - (aodMissing ? 0.05 : 0) - (ctx.pathAvailable ? 0 : 0.1) - (hrrr ? 0 : 0.1);
   if (!aboveFog && fogRisk >= 0.3 && fogRisk <= 0.7) conf -= 0.1; // marginal fog is the hardest call on this coast
@@ -191,7 +194,7 @@ export function forecast(ctx) {
     fogRisk, hrrrLow: hrrr?.r.low ?? null, globalLow, aod, pm25: aq?.pm25 ?? null, factors: f, warnings,
     members: MODELS.map((M) => {
       const s = scored.find((m) => m.id === M.id);
-      return { id: M.id, name: M.name, score: s ? Math.round(s.r.score) : null };
+      return { id: M.id, name: M.name, score: s ? Math.round(s.r.score) : null, excluded: !!ctx.excluded?.some((e) => e.id === M.id) };
     }),
   };
   out.greenFlash = ocean && f.light > 0.9 && (f.farLow ?? 1) < 0.1 && (aod ?? 1) < 0.12 && (f.cv ?? 1) < 0.4 && (fogRisk ?? 0) < 0.2;

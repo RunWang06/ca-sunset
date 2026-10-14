@@ -1,6 +1,6 @@
 import { SPOTS, REGIONS, REGION_BY_ID } from './spots.js';
 import { sunsetInfo, compass, compassEn } from './sun.js';
-import { loadData, buildInputs, laDate, addDays, distanceKm, destPoint } from './data.js';
+import { loadData, buildInputs, detectBrokenModels, laDate, addDays, distanceKm, destPoint } from './data.js';
 import { forecast, PATH_KM } from './model.js';
 import { tr, lang, setLang, detectLang, fmtTime, fmtTimeHtml, fmtDay, placeName, regionLabel, regionParen } from './i18n.js';
 
@@ -100,13 +100,14 @@ function drawRay(spot, idx) {
 // ---------- compute ----------
 function compute() {
   const { data } = state;
+  state.excluded = detectBrokenModels(data);
   for (const day of [0, 1]) {
     const date = state.dates[day];
     const month = +date.slice(5, 7) - 1;
     state.results[day] = SPOTS.map((s, i) => {
       const sun = state.suns[day][i];
-      const inp = buildInputs(data, i, s, sun.sunset, day);
-      const f = forecast({ spot: s, sun, day, ...inp, region: REGION_BY_ID[s.region], month });
+      const inp = buildInputs(data, i, s, sun.sunset, day, state.excluded);
+      const f = forecast({ spot: s, sun, day, ...inp, region: REGION_BY_ID[s.region], month, excluded: state.excluded });
       // consensus cloud cross-section along the sunset ray (for the profile chart)
       f.profile = PATH_KM.map((_, k) => {
         const acc = { low: [0, 0], mid: [0, 0], high: [0, 0] };
@@ -243,6 +244,7 @@ function renderStatus(extra = '') {
       ? `<span class="warn">${tr('status.stale', { age: ageText, t: t(d.at) })}</span> · <a href="#" id="refresh">${tr('status.retry')}</a>`
       : `${tr('status.updated', { t: t(d.at) })}${d.source ? tr(`src.${d.source}`) : ''} · <a href="#" id="refresh">${tr('status.refresh')}</a>`;
     if (d.errors?.length && !d.stale) html += ` · <span class="warn">${esc(tr('status.partial', { e: errorText(d.errors) }))}</span>`;
+    if (state.excluded?.length) html += ` · <span class="warn">${esc(tr('status.excluded', { names: state.excluded.map((e) => e.name).join(' / ') }))}</span>`;
   }
   if (state.todayOver && state.day === 1) html = `${tr('status.todayOver')} ${html}`;
   $('#status').innerHTML = html + extra;
@@ -419,7 +421,7 @@ function renderSheet() {
     <div class="card">
       <h3>${tr('card.models')}</h3>
       <div class="models">
-        ${r.members.map((m) => `<div class="mrow"><span>${m.name}</span>${m.score == null ? `<span class="na">${tr('models.na')}</span>` : `<div class="mtrack"><span class="mdot" style="left:${m.score}%;background:${tone(m.score)}"></span></div>`}<span class="num">${m.score ?? ''}</span></div>`).join('')}
+        ${r.members.map((m) => `<div class="mrow"><span>${m.name}</span>${m.excluded ? `<span class="na">${tr('models.excluded')}</span>` : m.score == null ? `<span class="na">${tr('models.na')}</span>` : `<div class="mtrack"><span class="mdot" style="left:${m.score}%;background:${tone(m.score)}"></span></div>`}<span class="num">${m.score ?? ''}</span></div>`).join('')}
       </div>
       <p class="factor-note">${esc(tr('models.note', { region: regionLabel(reg) }))}</p>
     </div>

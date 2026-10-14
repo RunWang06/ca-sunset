@@ -32,7 +32,7 @@ git add -A && git commit -m "update" && git push
 
 ## How data reaches the browser
 
-Open-Meteo's free API is rate-limited per IP: about 600 calls per minute, 5,000 per hour and 10,000 per day, and requests with many variables count as several calls. One full download for the coast (58 spots plus 142 offshore sample points, × 5 models) uses roughly a whole minute's quota. If every visitor called the API directly, they would easily get throttled (HTTP 429) or time out waiting in line.
+Open-Meteo's free API is rate-limited per IP: about 600 calls per minute, 5,000 per hour and 10,000 per day, and requests with many variables count as several calls. One full download for the coast (58 spots plus 142 offshore sample points, × 4 models) uses roughly a whole minute's quota. If every visitor called the API directly, they would easily get throttled (HTTP 429) or time out waiting in line.
 
 So:
 
@@ -65,13 +65,13 @@ Anonymous visit counts are collected with [GoatCounter](https://www.goatcounter.
 | `model.js` | Score, chance, confidence, and the text keys for reasons and notes. Pure functions: no DOM, and no text in any language |
 | `i18n.js` | All Chinese and English text, language detection and switching, language-aware time and date formatting |
 | `app.js` | UI: recommendation card, best spot per region, map, ranking, detail panel, language switch |
-| `tests.html` | 35 tests: the model (synthetic scenarios) and translation completeness |
+| `tests.html` | 43 tests: the model (synthetic scenarios) and translation completeness |
 | `vendor/leaflet/` | Leaflet 1.9.4 map library (BSD-2-Clause, see its `LICENSE`), served from this repo so the map doesn't depend on a third-party CDN |
 | `vendor/goatcounter/` | GoatCounter's `count.js` (ISC license) for the anonymous visit counts above |
 
 ## Data sources
 
-- **Weather, 5 models** (Open-Meteo `/v1/forecast`): HRRR 3 km, ECMWF IFS 0.25°, GFS 0.25°, ICON, GEM. Variables: low/mid/high cloud cover, visibility, 2 m temperature and humidity, 925 hPa temperature, precipitation.
+- **Weather, 4 models** (Open-Meteo `/v1/forecast`): HRRR 3 km, ECMWF IFS 0.25°, GFS 0.25°, ICON. GEM was used at first but dropped: its mid/high cloud layers from Open-Meteo were 0 at every spot and hour even when its total cloud cover was not. As a safeguard, any model whose mid/high cloud is almost always 0 while most other models clearly show cloud is now excluded automatically and flagged on the page. Variables: low/mid/high cloud cover, visibility, 2 m temperature and humidity, 925 hPa temperature, precipitation.
 - **Marine-layer structure** (HRRR, with GFS as fallback): cloud cover at the 1000–900 hPa pressure levels and boundary-layer height.
 - **Air quality** (CAMS global): 550 nm aerosol optical depth (AOD), PM2.5, dust.
 
@@ -97,7 +97,7 @@ score = 100 × canvas × light path × local view × air clarity × horizon
 - **Air clarity**: 1 for AOD ≤ 0.15, decreasing beyond that to a minimum of 0.3; 0.88 with a warning when data is missing.
 - **Horizon**: 1 when the sunset azimuth is inside the open-sea sector, otherwise 0.88.
 
-**Viewing score** = weighted average of the model scores. Weights today: HRRR 0.32, ECMWF 0.23, the others 0.15 each. Tomorrow, HRRR drops to 0.2.
+**Viewing score** = weighted average of the model scores. Weights today: HRRR 0.35, ECMWF 0.27, GFS and ICON 0.19 each. Tomorrow: HRRR 0.22, ECMWF 0.32, GFS and ICON 0.23 each.
 
 **Chance** = P(score ≥ 55). Each model contributes sigmoid((s−55)/7). The weighted result is then shrunk toward that region's baseline for the month, by an amount that depends on lead time and the number of models available (85% kept today, 72% tomorrow). This chance is **not yet calibrated against observations**. Use it to compare spots, not as a true frequency.
 
