@@ -1,13 +1,16 @@
-# Builds the site with a fresh data.json and deploys it to GitHub Pages.
-# Runs hourly so visitors read one prebuilt file instead of each calling Open-Meteo
-# (whose free tier allows ~600 weighted calls per minute per IP — about one full download).
+# Builds the site with a fresh data.json and deploys it to GitHub Pages, so visitors read one
+# prebuilt file instead of each calling Open-Meteo (whose free tier allows ~600 weighted calls per
+# minute per IP — about one full download).
+# GitHub delays and drops scheduled runs (an hourly cron ran about every 5 h in Oct 2026), so the
+# cron fires every 20 min and each scheduled run exits early while the live data is < 50 min old
+# and still for today: about one fetch per hour when GitHub is on time, a quick catch-up when not.
 name: Deploy site with fresh forecast data
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "7 * * * *"
+    - cron: "7,27,47 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -25,12 +28,25 @@ jobs:
     outputs:
       deploy: ${{ steps.fetch.outcome == 'success' || github.event_name != 'schedule' }}
     steps:
+      - name: Skip if the live data is still fresh
+        id: fresh
+        if: github.event_name == 'schedule'
+        run: |
+          url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data.json"
+          info=$(curl -fsS --max-time 20 "$url" | python3 -c 'import json,sys; j=json.load(sys.stdin); print(j["at"]//1000, j["data"]["startDate"])' || echo "0 none")
+          read -r at day <<< "$info"
+          age=$(( $(date +%s) - at )); today=$(TZ=America/Los_Angeles date +%F)
+          echo "live data.json: built $(( age / 60 )) min ago for $day (today in California: $today)"
+          if [ "$at" -gt 0 ] && [ "$age" -lt 3000 ] && [ "$day" = "$today" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v5
+        if: steps.fresh.outputs.skip != 'true'
       - uses: actions/setup-node@v5
+        if: steps.fresh.outputs.skip != 'true'
         with:
           node-version: 22
       - name: Fetch forecast data
         id: fetch
+        if: steps.fresh.outputs.skip != 'true'
         continue-on-error: true
         timeout-minutes: 20
         run: node scripts/build-data.mjs _data.json

@@ -168,7 +168,7 @@ function renderList() {
       <div style="min-width:0">
         <div class="nm">${main(s)}${alt(s)}</div>
         <div class="meta num">${past ? tr('list.over') : tr('list.sunset', { t: t(r.sun.sunset) })} · ${dir(r.sun.azimuth)}${dist} · ${esc(reg)}</div>
-        <div class="hl">${esc(tr(r.headline))}</div>
+        <div class="hl">${esc(tr(r.headline, r.headlineVars))}</div>
       </div>
       <div class="right num">${r.prob == null ? '' : `<b>${pct(r.prob)}</b>${tr('list.prob')}`}</div>
     </li>`;
@@ -208,7 +208,7 @@ function renderAnswer() {
       <div class="eyebrow">${esc(tr(dull ? 'ans.eyebrowDull' : 'ans.eyebrow', { day: dayWord, scope }))}</div>
       <h2>${main(best.s)}</h2>
       <div class="eyebrow">${esc(placeName(best.s).alt)} · ${esc(regionLabel(REGION_BY_ID[best.s.region]))}</div>
-      <p class="why">${esc(tr(best.r.headline))}${good && !dull ? `${sep}${esc(tr(good.id, good.vars))}` : ''}</p>
+      <p class="why">${esc(tr(best.r.headline, best.r.headlineVars))}${good && !dull ? `${sep}${esc(tr(good.id, good.vars))}` : ''}</p>
       <div class="kpis num">
         <div class="kpi"><b>${best.r.score}</b><span>${tr('kpi.score')}</span></div>
         <div class="kpi"><b>${pct(best.r.prob)}</b><span>${tr('kpi.prob', { c: tr(`conf.${best.r.confidence.level}`) })}</span></div>
@@ -370,7 +370,7 @@ function renderSheet() {
         <div class="stat"><b class="num">${pct(r.prob)}</b><span>${tr('stat.prob')}</span><em>${tr('stat.probHint')}</em></div>
         <div class="stat"><b>${r.confidence ? tr(`conf.${r.confidence.level}`) : '—'}</b><span>${tr('stat.conf')}</span><em>${r.confidence ? tr('stat.spread', { n: r.confidence.spread }) : ''}</em></div>
       </div>
-      <p class="headline">${esc(tr(r.label))} · ${esc(tr(r.headline))}</p>
+      <p class="headline">${esc(tr(r.label))} · ${esc(tr(r.headline, r.headlineVars))}</p>
     </div>
 
     <div class="card">
@@ -429,7 +429,7 @@ function renderSheet() {
     ${near.length ? `<div class="card">
       <h3>${tr('card.near')}</h3>
       <ul class="near">${near.map(({ o, d, r: nr }) => `<li data-id="${o.id}">${badge(nr.score, false)}
-        <div style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${main(o)}${alt(o)}</div><small>${esc(tr(nr.headline))}</small></div>
+        <div style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${main(o)}${alt(o)}</div><small>${esc(tr(nr.headline, nr.headlineVars))}</small></div>
         <div style="text-align:right;font-size:12px;color:var(--ink-3)" class="num">${nr.score >= (r.score ?? 0) + 10 && nr.score >= 35 ? `<div class="better">${tr('near.better')}</div>` : ''}${Math.round(d)} km<br>${pct(nr.prob)}</div></li>`).join('')}</ul>
       <p class="factor-note">${tr('near.note')}</p>
     </div>` : ''}

@@ -6,7 +6,7 @@
 
 A sunset and afterglow forecast for the entire California coast: 58 cities, beaches and viewpoints from Crescent City to Coronado. Sunsets only. It answers three questions: **where is worth going today or tomorrow, when to arrive, and why**.
 
-A fully static site with no backend and no API keys. Anonymous visit counts go to GoatCounter (see below). Weather data is fetched once an hour by GitHub Actions and deployed to GitHub Pages together with the site (see "How data reaches the browser" below).
+A fully static site with no backend and no API keys. Anonymous visit counts go to GoatCounter (see below). Weather data is fetched about once an hour by GitHub Actions and deployed to GitHub Pages together with the site (see "How data reaches the browser" below).
 
 ## Run locally
 
@@ -36,8 +36,8 @@ Open-Meteo's free API is rate-limited per IP: about 600 calls per minute, 5,000 
 
 So:
 
-1. **GitHub Actions runs every hour** (`.github/workflows/pages.yml`). It uses `scripts/build-data.mjs` to call exactly the same `fetchAll()` as the page, writes the result to `data.json`, and deploys it to Pages along with the site.
-2. The browser reads its local cache first (valid for 30 minutes), then `data.json` (valid for 2.5 hours). Only when neither is available does it call Open-Meteo directly: 60 points per batch, at most 4 requests at a time, a 45-second timeout, and 2 automatic retries. After a 429 it waits 20–40 seconds before retrying.
+1. **GitHub Actions refreshes the data about once an hour** (`.github/workflows/pages.yml`). GitHub delays and drops scheduled runs (an hourly schedule actually ran about every 5 hours), so the workflow is triggered every 20 minutes and each run exits immediately while the live `data.json` is less than 50 minutes old and still for today in California. It uses `scripts/build-data.mjs` to call exactly the same `fetchAll()` as the page, writes the result to `data.json`, and deploys it to Pages along with the site.
+2. The browser reads its local cache first (valid for 30 minutes), then `data.json` (valid for 6 hours; the page shows the data's time, and Refresh fetches live data). Only when neither is available does it call Open-Meteo directly: 60 points per batch, at most 4 requests at a time, a 45-second timeout, and 2 automatic retries. After a 429 it waits 20–40 seconds before retrying.
 3. If one batch fails, only the affected spots show "No data". If everything fails, the page shows the last successful download from the past 12 hours, says clearly how old it is, and retries automatically after a minute.
 
 Note: GitHub pauses scheduled workflows after 60 days without commits to the repository. If that happens, re-enable the workflow on the repository's Actions page. Until then the page falls back to calling Open-Meteo directly.
@@ -61,7 +61,7 @@ Anonymous visit counts are collected with [GoatCounter](https://www.goatcounter.
 | `spots.js` | 5 climate regions (monthly fog frequency and baseline glow chance; climate notes live in `i18n.js`) and 58 spots with Chinese and English names, coordinates, elevation, open-horizon direction, and whether a hike is needed |
 | `sun.js` | Sunset time, azimuth, civil dusk, and horizon dip from elevation |
 | `data.js` | Fetches and caches data, generates sample points along the sunset direction, interpolates to sunset time |
-| `scripts/build-data.mjs` | Run hourly by GitHub Actions to generate `data.json` |
+| `scripts/build-data.mjs` | Run by GitHub Actions about once an hour to generate `data.json` |
 | `model.js` | Score, chance, confidence, and the text keys for reasons and notes. Pure functions: no DOM, and no text in any language |
 | `i18n.js` | All Chinese and English text, language detection and switching, language-aware time and date formatting |
 | `app.js` | UI: recommendation card, best spot per region, map, ranking, detail panel, language switch |

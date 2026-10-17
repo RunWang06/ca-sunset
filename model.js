@@ -200,8 +200,10 @@ export function forecast(ctx) {
   };
   out.greenFlash = ocean && f.light > 0.9 && (f.farLow ?? 1) < 0.1 && (aod ?? 1) < 0.12 && (f.cv ?? 1) < 0.4 && (fogRisk ?? 0) < 0.2;
   out.timing = timing(sun, f, spot);
+  out.split = splitGroups(scored);
   out.reasons = reasons(out, sun, spot);
   out.headline = headline(out);
+  out.headlineVars = out.split ? { names: (out.split.hi.w >= out.split.lo.w ? out.split.lo : out.split.hi).names } : undefined;
   return out;
 }
 
@@ -253,14 +255,36 @@ function reasons(o, sun, spot) {
   if (o.ocean) add('good', 'horizon', 'r.horizonOcean', { az });
   else add('neutral', 'horizon', 'r.horizonLand', { az });
 
-  if (o.confidence.spread >= 18) add('neutral', 'model', 'r.modelSplit', { n: o.confidence.spread });
+  if (o.split) add('neutral', 'model', 'r.modelSplitGroups', { hiNames: o.split.hi.names, hi: o.split.hi.score, loNames: o.split.lo.names, lo: o.split.lo.score });
+  else if (o.confidence.spread >= 18) add('neutral', 'model', 'r.modelSplit', { n: o.confidence.spread });
   else if (o.members.filter((m) => m.score != null).length >= 4 && o.confidence.spread <= 8 && !(o.hrrrLow != null && o.globalLow != null && Math.abs(o.hrrrLow - o.globalLow) > 0.35)) add('good', 'model', 'r.modelAgree');
   if (o.greenFlash) add('good', 'horizon', 'r.greenFlash');
   return r;
 }
 
+/**
+ * When the members fall into two camps far apart (e.g. three say clear ≈ 22, HRRR says 92), the
+ * weighted average (≈ 47 "good") describes neither outcome. Backtests showed the average is still the
+ * most accurate number, so the score stays — but the text then says who expects what.
+ * Returns { hi, lo } groups ({ names, score, w }) when the widest gap between sorted scores is ≥ 40.
+ */
+export const SPLIT_GAP = 40;
+export function splitGroups(scored) {
+  const ms = scored.map((m) => ({ name: m.name, s: m.r.score, w: m.w })).sort((a, b) => a.s - b.s);
+  let gap = 0, at = -1;
+  for (let i = 1; i < ms.length; i++) if (ms[i].s - ms[i - 1].s > gap) { gap = ms[i].s - ms[i - 1].s; at = i; }
+  if (ms.length < 2 || gap < SPLIT_GAP) return null;
+  const group = (g) => {
+    const w = g.reduce((s, m) => s + m.w, 0);
+    return { names: g.map((m) => m.name).join(' / '), score: Math.round(g.reduce((s, m) => s + m.s * m.w, 0) / w), w };
+  };
+  return { lo: group(ms.slice(0, at)), hi: group(ms.slice(at)) };
+}
+
 function headline(o) {
   if (o.insufficient) return 'hl.na';
+  // Camps far apart: say which way most of the weight leans and name the dissenting models.
+  if (o.split) return o.split.hi.w >= o.split.lo.w ? 'hl.splitMostlyHigh' : 'hl.splitMostlyLow';
   const f = o.factors;
   if (o.aboveFog && o.score >= 45) return 'hl.aboveFog';
   if (o.score >= 65) return 'hl.great';

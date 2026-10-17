@@ -193,8 +193,10 @@ export async function fetchAll(spots, azimuths, startDate, { onProgress = () => 
   return { startDate, errors, obs, path, profile, aq, pathKeys, pathIndex, azimuths };
 }
 
-// data.json is rebuilt hourly by GitHub Actions; trust it while it is reasonably fresh.
-const PREBUILT_MAX = 150 * 60 * 1000;
+// data.json is rebuilt by GitHub Actions. Scheduled runs are often delayed by hours (Oct 2026:
+// median gap 4.9 h), so trust it for 6 h; the models themselves only publish new runs every 1–6 h,
+// the page shows the data's time, and Refresh still fetches live data.
+const PREBUILT_MAX = 6 * 60 * 60 * 1000;
 async function loadPrebuilt(startDate) {
   try {
     const res = await fetch('data.json', { cache: 'no-cache' });
