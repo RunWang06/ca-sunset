@@ -16,7 +16,7 @@
 <h1>Model &amp; translation tests / 模型与翻译测试</h1>
 <pre id="out"></pre>
 <script type="module">
-import { canvasQuality, marineHeuristic, clarityFactor, inSector, memberScore, forecast, marineLayerTop, MODELS } from './model.js';
+import { canvasQuality, marineHeuristic, clarityFactor, inSector, memberScore, forecast, marineLayerTop, MODELS, timing, glowMinutes, GLOW, canvasKind, lightWeights, PATH_KM } from './model.js';
 import { detectBrokenModels, buildInputs } from './data.js';
 import { sunsetInfo } from './sun.js';
 import { REGION_BY_ID, REGIONS } from './spots.js';
@@ -49,6 +49,17 @@ for (const low of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
   if (s > prev + 1e-9) mono = false; prev = s;
 }
 ok(mono, 'more far-ocean low cloud never raises the score (light path)');
+
+// light-path geometry: a cloud bank 300–350 km out only matters for a high-cloud canvas
+{
+  const far = (low) => [cell(0, 0, 0), cell(0, 0, 0), cell(0, 0, 0), cell(0, 0, 0), cell(low, 0, 0), cell(low, 0, 0)];
+  const hiObs = obs(0, 0, 0.5), midObs = obs(0, 0.5, 0);
+  const hiCanvas = (low) => memberScore(member(hiObs, far(low).map((c, i) => (i < 2 ? { ...c, high: 0.5 } : c))), ctx0);
+  const midCanvas = (low) => memberScore(member(midObs, far(low).map((c, i) => (i < 2 ? { ...c, mid: 0.5 } : c))), ctx0);
+  ok(hiCanvas(0.9).light < hiCanvas(0).light - 0.2, 'high canvas: a bank at 300–350 km cuts the light', `${hiCanvas(0).light.toFixed(2)} → ${hiCanvas(0.9).light.toFixed(2)}`);
+  ok(Math.abs(midCanvas(0.9).light - midCanvas(0).light) < 1e-9, 'mid canvas: a bank beyond ~240 km does not matter');
+  ok(lightWeights(0).reduce((a, x) => a + x, 0) > 0.999 && lightWeights(1)[PATH_KM.indexOf(350)] > 0 && lightWeights(0)[PATH_KM.indexOf(350)] === 0, 'light weights sum to 1; only high cloud reaches 350 km');
+}
 
 prev = 101; mono = true;
 for (const low of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
@@ -106,6 +117,25 @@ const sf = new Date(sun.sunset).toLocaleTimeString('en-US', { timeZone: 'America
 ok(sf === '06:46 PM' || sf === '06:47 PM', 'SF sunset 2026-10-07 ≈ 18:46 PDT', sf);
 ok(Math.abs(sun.azimuth - 263.5) < 1.5, 'SF sunset azimuth ≈ 263°', sun.azimuth.toFixed(1));
 ok(sunsetInfo('2026-10-07', 37.93, -122.58, 760).elevationGainMin >= 3, 'elevated spot sees a later sunset');
+
+// afterglow geometry (timing only)
+{
+  const hi = { cv: 0.5, high: 0.45, mid: 0.05 }, md = { cv: 0.5, high: 0.05, mid: 0.45 };
+  const th = timing(sun, hi, spot), tm = timing(sun, md, spot);
+  const after = (x) => (x - sun.sunset) / 60000;
+  ok(th.peakKey === 'peak.high' && after(th.peakEnd) > 14 && after(th.peakEnd) < 22, 'high cloud stays lit ~15–20 min after sunset', after(th.peakEnd).toFixed(1));
+  ok(tm.peakKey === 'peak.mid' && after(tm.peakEnd) > 9 && after(tm.peakEnd) < after(th.peakEnd), 'mid cloud goes dark before high cloud', after(tm.peakEnd).toFixed(1));
+  const tx = timing(sun, { cv: 0.5, high: 0.25, mid: 0.25 }, spot);
+  ok(tx.peakKey === 'peak.mix' && tx.peakEnd === th.peakEnd && tx.peakStart < th.peakStart, 'mixed canvas: watch from before sunset until the high cloud fades');
+  ok(canvasKind(0.3, 0.1) === 'high' && canvasKind(0.1, 0.3) === 'mid' && canvasKind(0.2, 0.2) === 'mix' && canvasKind(0, 0) === 'mix', 'canvas kind shared by the reason text and the timing');
+  setLang('zh'); ok(/\d+/.test(tr(tx.peakKey, tx.peakVars)) && STRINGS.en['peak.mix'], 'mixed timing text renders with minutes');
+  ok(th.peakEnd < sun.dusk && th.peakVars.b === Math.round(after(th.peakEnd)), 'afterglow ends before civil dusk and the text quotes the same minutes');
+  const june = sunsetInfo('2026-06-21', 40.8, -124.2, 0), oct = sunsetInfo('2026-10-21', 40.8, -124.2, 0);
+  ok(glowMinutes(GLOW.high, june.descent) > glowMinutes(GLOW.high, oct.descent), 'the sun sinks slower in June, so the afterglow lasts longer');
+  const peak = sunsetInfo('2026-10-07', 37.93, -122.58, 760);
+  const tp = timing(peak, hi, spot);
+  ok(tp.peakVars.b < th.peakVars.b, 'on a summit the glow ends sooner after its own (later) sunset', `${tp.peakVars.b} vs ${th.peakVars.b} min`);
+}
 
 // ---------- regional HRRR fog weight ----------
 {
@@ -179,7 +209,7 @@ const scenarios = [good, split, tomorrow, none, low, high, noFogHill, fx,
 ];
 const emitted = [];
 for (const o of scenarios) {
-  emitted.push([o.headlineVars, o.headline], ['', o.label], ['', o.timing.peakKey]);
+  emitted.push([o.headlineVars, o.headline], ['', o.label], [o.timing.peakVars, o.timing.peakKey]);
   for (const r of o.reasons) emitted.push([r.vars, r.id]);
   for (const w of o.warnings) emitted.push([w.vars, w.id]);
   if (o.confidence) emitted.push(['', `conf.${o.confidence.level}`]);

@@ -84,10 +84,12 @@
     <p>漂亮的晚霞需要四件事同时成立。每个地点、每个模型都分别计算这四项，再相乘得到 0–100 的<b>观赏评分</b>。</p>
     <ol class="method-list">
       <li><b>云层“画布”</b>：观景点上空，以及日落方向 25 km、75 km 处的中高云覆盖率。约 45–70% 最理想；完全晴空仍有金色落日（约 20 分），中高云满天则阳光照不进来。</li>
-      <li><b>光路通畅</b>：沿太阳方位角在 75、150、250 km 远海采样低云。夕阳要从地平线下方照亮云底，远海若有云堤，太阳会提前“没入”云中。这是只看单点天气的预报最常漏掉的一项。</li>
+      <li><b>光路通畅</b>：沿太阳方位角在 75、150、250、300、350 km 远海采样低云。夕阳要从地平线下方照亮云底，远海若有云堤，太阳会提前“没入”云中。这是只看单点天气的预报最常漏掉的一项。看多远取决于云有多高：日落后照到云底的光线，最低点从云下方一路移到约 √(2R·h) 远处，所以中云（约 4.5 km）主要看 240 km 以内，高云（约 9 km）要看到 350 km。</li>
       <li><b>本地遮挡</b>：观景点及近岸的低云、海雾、能见度和降水。加州全球模式常低估海洋层，所以额外用“强逆温 + 高湿度”识别海雾，并给 3 km 分辨率的 HRRR 更高权重。若观景点海拔高于估算的海洋层顶（来自 HRRR 各气压层云量），则视为“雾上”，可能看到云海。</li>
       <li><b>空气透明度</b>：CAMS 气溶胶光学厚度（AOD）。轻度气溶胶影响不大，烟霾重时颜色发闷。</li>
     </ol>
+    <h3>最佳时段</h3>
+    <p>同样的几何也能估算余晖能持续多久：云越高，太阳落下后被照亮的时间越长。按当天当地太阳的下沉速度换算，加州海岸的高云一般在日落后 16–21 分钟变暗，中云约 11–15 分钟。这只是按典型云高估算的，没有实测余晖时间可以检验。</p>
     <h3>评分 ≠ 概率</h3>
     <p><b>观赏评分</b>表示“按各模型的预报，晚霞大概会有多好”（四个模型评分的加权平均）。<b>发生概率</b>表示出现明显晚霞（评分 ≥ 55）的可能性：先看有多少模型给出这种结果，再按预报时效与该地区、该月份的气候基准做收缩。两者可以差很多，例如评分中等但模型一致时概率反而稳定；评分很高但只有一个模型支持时，概率会偏低。</p>
     <p>概率是根据模型间分歧做的启发式估计，<b>尚未用实际观测校准</b>，仅适合横向比较。</p>
@@ -111,10 +113,12 @@
     <p>A great afterglow needs four things at once. For every spot and every model, each is scored separately and multiplied into a 0–100 <b>viewing score</b>.</p>
     <ol class="method-list">
       <li><b>Cloud canvas</b>: mid/high cloud cover above the spot and 25 km and 75 km out toward the sunset. Around 45–70% is ideal; a cloudless sky still gives a golden sunset (about 20 points), while an overcast deck keeps the light out.</li>
-      <li><b>Light path</b>: low cloud sampled 75, 150 and 250 km out along the sun’s azimuth. The setting sun lights clouds from below the horizon; a cloud bank far offshore makes it “sink” early. This is what single-point forecasts most often miss.</li>
+      <li><b>Light path</b>: low cloud sampled 75, 150, 250, 300 and 350 km out along the sun’s azimuth. The setting sun lights clouds from below the horizon; a cloud bank far offshore makes it “sink” early. This is what single-point forecasts most often miss. How far out matters depends on the cloud’s height: after sunset the lowest point of the ray reaching the cloud moves out to about √(2R·h), so mid cloud (≈ 4.5 km) depends on the first ~240 km and high cloud (≈ 9 km) on up to 350 km.</li>
       <li><b>Local view</b>: low cloud, fog, visibility and rain at the spot and just offshore. Global models routinely underestimate California’s marine layer, so a “strong inversion + high humidity” signal is used to detect fog, and the 3 km HRRR model gets extra weight. If the spot is higher than the estimated marine-layer top (from HRRR cloud cover at pressure levels), it is treated as “above the fog”, with a chance of a sea of clouds.</li>
       <li><b>Air clarity</b>: CAMS aerosol optical depth (AOD). Light aerosols barely matter; heavy haze or smoke mutes the colors.</li>
     </ol>
+    <h3>Best window</h3>
+    <p>The same geometry estimates how long the afterglow lasts: the higher the cloud, the longer it stays lit after sunset. Using how fast the sun sinks on that day at that spot, high cloud on the California coast usually goes dark 16–21 minutes after sunset and mid cloud after about 11–15 minutes. It assumes typical cloud heights; there are no observed glow times to check it against.</p>
     <h3>Score ≠ chance</h3>
     <p>The <b>viewing score</b> is how good the sunset should be if the models are right (a weighted average of four models). The <b>chance</b> is the probability of a notable glow (score ≥ 55): it counts how many models produce one, then shrinks toward a baseline for that region and month depending on lead time. The two can differ a lot: a middling score with agreeing models gives a steady chance, while a high score backed by a single model gives a low one.</p>
     <p>The chance is a heuristic built from model disagreement and is <b>not yet calibrated against observations</b> — use it to compare spots, not as a true frequency.</p>

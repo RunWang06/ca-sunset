@@ -5,3 +5,4 @@ _site/
 _data.json
 backtest/cache/
 backtest/results.json
+backtest/light_path_results.json

@@ -387,7 +387,7 @@ ${cloudTable('cv')}
 
 ${cloudTable('high')}
 
-## 3. 光路低云 Light-path low cloud, 75–250 km toward the sun（%）
+## 3. 光路低云 Light-path low cloud, 75–350 km toward the sun, geometry-weighted（%）
 
 ${cloudTable('farLow')}
 

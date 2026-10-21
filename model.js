@@ -11,7 +11,32 @@ const sigm = (x) => 1 / (1 + Math.exp(-x));
 const pct = (x) => Math.round(x * 100);
 
 // Distances (km) sampled along the sunset azimuth. Index 0 is the observer.
-export const PATH_KM = [0, 25, 75, 150, 250];
+// 300 and 350 km added 2026-10-21 for the high-cloud light path (see LIGHT below).
+export const PATH_KM = [0, 25, 75, 150, 250, 300, 350];
+
+/**
+ * Light-path geometry (the cloud-base method of sunsetbot.top). During the afterglow the sun's ray
+ * to a canvas cloud at height h grazes the haze / marine-layer top hb at a point that sweeps from the
+ * canvas out to x0 + √(2R(h − hb)) toward the sun — ≈ 240 km for mid cloud (4.5 km), ≈ 350 km for high
+ * cloud (9 km) — so low cloud anywhere along that stretch can cut the light. Each sampled distance
+ * stands for a stretch of ocean; its weight is how much of the lit stretch it covers, blended by the
+ * canvas's high-cloud share. Replaced fixed 75/150/250 km weights of .3/.4/.3. Backtest
+ * (backtest/LIGHT_PATH.md, Jul–Oct 2026): light-factor MAE and r, score MAE and score MAE vs METAR
+ * hybrid truth all improved in both halves of the period (score MAE 10.13 → 9.68); gains are small.
+ */
+export const LIGHT = { R: 6371, hb: 1, x0: 30, mid: 4.5, high: 9, bins: { 75: [50, 112], 150: [112, 200], 250: [200, 275], 300: [275, 325], 350: [325, 375] } };
+function lightWeightsFor(h) {
+  const end = LIGHT.x0 + Math.sqrt(2 * LIGHT.R * (h - LIGHT.hb));
+  const w = PATH_KM.map((km) => {
+    const bin = LIGHT.bins[km];
+    return bin ? Math.max(0, Math.min(bin[1], end) - Math.max(bin[0], LIGHT.x0)) : 0;
+  });
+  const t = w.reduce((a, x) => a + x, 0);
+  return w.map((x) => x / t);
+}
+const LIGHT_W = { mid: lightWeightsFor(LIGHT.mid), high: lightWeightsFor(LIGHT.high) };
+/** Weight of each PATH_KM point in the light path, given the canvas's high-cloud share (0–1). */
+export const lightWeights = (hs) => LIGHT_W.mid.map((m, i) => (1 - hs) * m + hs * LIGHT_W.high[i]);
 
 // Member weights by day index [today, tomorrow]. HRRR (3 km) resolves the marine layer far better
 // than the global models but degrades past ~24 h, so its weight drops tomorrow.
@@ -92,8 +117,11 @@ export function memberScore(m, ctx) {
   let canvasQ = canvasQuality(cv ?? 0);
   if (ctx.aboveFog) canvasQ = Math.max(canvasQ, 0.45); // a lit sea of fog is a show by itself
 
-  // 2) Light path: low (and thick mid) cloud 75–250 km toward the sun blocks the light.
-  const far = [[m.path[2], 0.3], [m.path[3], 0.4], [m.path[4], 0.3]].filter(([c]) => c && c.low != null);
+  // 2) Light path: low (and thick mid) cloud 75–350 km toward the sun blocks the light; how far out
+  // matters depends on how high the canvas is (LIGHT above).
+  const hs = high != null && mid != null && high + mid > 0.02 ? high / (high + mid) : 0.5;
+  const lw = lightWeights(hs);
+  const far = m.path.map((c, i) => [c, lw[i]]).filter(([c, w]) => w > 0 && c && c.low != null);
   const block = far.length ? wavg(far.map(([c, w]) => [clamp(c.low * 0.8 + (c.mid ?? 0) * 0.3), w])) : null;
   const farLow = far.length ? wavg(far.map(([c, w]) => [c.low, w])) : null;
   const light = block == null ? 0.85 : clamp(1 - 1.15 * block, 0.05, 1);
@@ -207,15 +235,53 @@ export function forecast(ctx) {
   return out;
 }
 
+/**
+ * Afterglow geometry (the cloud-base method sunsetbot.top uses): after sunset a cloud at height h
+ * stays lit until the sun is δ = √(2(h − hb)/R) below the horizon, where hb is the haze / marine-layer
+ * top the grazing ray must clear; a cloud x km toward the sun gains another x/R. Open-Meteo gives
+ * cover by layer, not cloud base, so typical heights are used: mid 4.5 km, high 9 km, with x = 50 km
+ * for the western sky the viewer watches. Returns minutes after sea-level sunset.
+ * Timing only — it does not touch the score. Not verified against observed glow times (none exist).
+ */
+export const GLOW = { R: 6371, hb: 1, x: 50, mid: 4.5, high: 9 };
+export function glowMinutes(h, descent) {
+  if (!(descent > 0)) return null;
+  const deg = (Math.sqrt((2 * (h - GLOW.hb)) / GLOW.R) + GLOW.x / GLOW.R) * (180 / Math.PI);
+  return deg / descent;
+}
+
+/** Which layer makes up the canvas: 'high' / 'mid' when it holds ≥ 60 % of it, else 'mix'. */
+export function canvasKind(high, mid) {
+  if (high == null || mid == null || high + mid < 1e-6) return 'mix';
+  const share = high / (high + mid);
+  return share >= 0.6 ? 'high' : share <= 0.4 ? 'mid' : 'mix';
+}
+
 export function timing(sun, f, spot) {
   const min = 60000, s = sun.sunset;
-  let peak, peakKey;
-  const highShare = f && f.high != null && f.mid != null ? f.high / (f.high + f.mid + 1e-6) : 0.5;
+  const s0 = sun.seaLevelSunset ?? s;
+  let peak, peakKey, peakVars;
+  const kind = canvasKind(f?.high, f?.mid);
+  const lHigh = glowMinutes(GLOW.high, sun.descent), lMid = glowMinutes(GLOW.mid, sun.descent);
+  const after = (t) => Math.max(1, Math.round((t - s) / min));
   if (!f || (f.cv ?? 0) < 0.15) { peak = [s - 15 * min, s + 5 * min]; peakKey = 'peak.clear'; }
-  else if (highShare >= 0.6) { peak = [s + 3 * min, s + 25 * min]; peakKey = 'peak.high'; }
-  else { peak = [s - 5 * min, s + 15 * min]; peakKey = 'peak.mid'; }
+  else if (kind === 'high') {
+    // The deepest red comes late, as the grazing ray lengthens: the last ~60 % of the lit time.
+    peak = lHigh ? [s0 + 0.4 * lHigh * min, s0 + lHigh * min] : [s + 3 * min, s + 25 * min];
+    peakKey = 'peak.high';
+    peakVars = { a: after(peak[0]), b: after(peak[1]) };
+  } else if (kind === 'mix') {
+    // Both layers: the mid cloud colours first, the high cloud stays lit longest.
+    peak = [s - 5 * min, lHigh ? s0 + lHigh * min : s + 20 * min];
+    peakKey = 'peak.mix';
+    peakVars = { b: after(peak[1]) };
+  } else {
+    peak = [s - 5 * min, lMid ? s0 + lMid * min : s + 15 * min];
+    peakKey = 'peak.mid';
+    peakVars = { b: after(peak[1]) };
+  }
   const lead = spot.hike ? 45 : 25;
-  return { arrive: s - lead * min, sunset: s, peakStart: peak[0], peakEnd: peak[1], dusk: sun.dusk, peakKey, lead };
+  return { arrive: s - lead * min, sunset: s, peakStart: peak[0], peakEnd: peak[1], dusk: sun.dusk, peakKey, peakVars, lead };
 }
 
 function reasons(o, sun, spot) {
@@ -225,7 +291,7 @@ function reasons(o, sun, spot) {
   if (o.aboveFog) add('good', 'canvas', 'r.aboveFog', { elev: spot.elev, top: o.mlTop });
   if ((f.cv ?? 0) < 0.12) add('neutral', 'canvas', 'r.canvasNone');
   else if (f.cv < 0.3) add('neutral', 'canvas', 'r.canvasFew', { cv });
-  else if (f.cv <= 0.75) add('good', 'canvas', 'r.canvasGood', { cv, kind: (f.high ?? 0) > (f.mid ?? 0) ? 'high' : 'mid' });
+  else if (f.cv <= 0.75) add('good', 'canvas', 'r.canvasGood', { cv, kind: canvasKind(f.high, f.mid) });
   else add('bad', 'canvas', 'r.canvasThick', { cv });
 
   const fl = pct(f.farLow ?? 0);

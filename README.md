@@ -32,7 +32,7 @@ git add -A && git commit -m "update" && git push
 
 ## How data reaches the browser
 
-Open-Meteo's free API is rate-limited per IP: about 600 calls per minute, 5,000 per hour and 10,000 per day, and requests with many variables count as several calls. One full download for the coast (58 spots plus 142 offshore sample points, × 4 models) uses roughly a whole minute's quota. If every visitor called the API directly, they would easily get throttled (HTTP 429) or time out waiting in line.
+Open-Meteo's free API is rate-limited per IP: about 600 calls per minute, 5,000 per hour and 10,000 per day, and requests with many variables count as several calls. One full download for the coast (58 spots plus about 189 offshore sample points, × 4 models) uses roughly a whole minute's quota. If every visitor called the API directly, they would easily get throttled (HTTP 429) or time out waiting in line.
 
 So:
 
@@ -80,7 +80,7 @@ Anonymous visit counts are collected with [GoatCounter](https://www.goatcounter.
 
 The earlier version used single-point data and one combined formula. Extending it to the whole coast meant handling three problems separately:
 
-1. **The light path toward the sunset.** Afterglow is sunlight shining up onto cloud bases from below the horizon. What really matters is whether there is a low-cloud bank 75–250 km offshore toward the sun, not just whether there is cloud overhead. The new version samples cloud cover at 25/75/150/250 km along each spot's sunset azimuth: near points count as the "canvas", far points as the "light path". Far points are snapped to 0.1°, 0.25° or 0.5° grids by distance and deduplicated (58 spots → 142 sample points).
+1. **The light path toward the sunset.** Afterglow is sunlight shining up onto cloud bases from below the horizon. What really matters is whether there is a low-cloud bank 75–350 km offshore toward the sun, not just whether there is cloud overhead. The new version samples cloud cover at 25/75/150/250/300/350 km along each spot's sunset azimuth: near points count as the "canvas", far points as the "light path". Far points are snapped to 0.1°, 0.25° or 0.5° grids by distance and deduplicated (58 spots → about 189 sample points).
 2. **Global models miss the marine layer.** Measured at SF Ocean Beach on 2026-10-07: HRRR showed 100% low cloud, all four global models showed 0%, and it was 13 °C warmer at 925 hPa than at the surface, a classic marine-layer inversion. So the new version (a) builds a fog heuristic from inversion strength × surface humidity to correct each model's low cloud, and (b) gives HRRR extra weight when judging fog risk (50% today, 30% tomorrow). San Diego uses 35% today: a backtest against airport observations showed HRRR over-forecasts sunset fog there, and the lower weight was more accurate in both halves of the test period (see `backtest/REGIONAL_FOG.md`).
 3. **Regional and terrain differences.** Each spot uses its own coordinates and elevation, with its open-horizon sector annotated. Santa Cruz, Santa Barbara and Malibu face south, so in summer the sun sets behind land. Viewpoints at 100 m or higher are marked "above the fog" when they are higher than the marine-layer top estimated from HRRR pressure-level cloud cover, which means a chance of a sea-of-fog sunset. Each climate region has its own monthly fog frequency and baseline glow chance.
 
@@ -93,7 +93,7 @@ score = 100 × canvas × light path × local view × air clarity × horizon
 ```
 
 - **Canvas**: mid/high cloud coverage cv = 1 − (1−high)(1−mid), weighted 0.35 at the spot, 0.4 at 25 km and 0.25 at 75 km. It is 0.22 at cv = 0 (a clean golden sunset), 1 for 45–72%, and 0.55 at 100%.
-- **Light path**: block = weighted average of `low×0.8 + mid×0.3` at 75/150/250 km; light path = 1 − 1.15 × block.
+- **Light path**: block = weighted average of `low×0.8 + mid×0.3` at 75–350 km; light path = 1 − 1.15 × block. The weights come from cloud-base geometry (borrowed from sunsetbot.top). During the afterglow, the lowest point of the ray lighting a cloud moves out to about 30 + √(2R(h − 1 km)) km: ≈ 240 km for mid cloud (4.5 km) and ≈ 350 km for high cloud (9 km). Each point is weighted by how much of that stretch it covers, then the mid and high weightings are blended by the canvas's high-cloud share. The backtest improved in both halves, but only slightly (score MAE 10.13 → 9.68); see `backtest/LIGHT_PATH.md`.
 - **Local view**: b = 0.8 × effective low cloud + 0.2 × low cloud at 25 km; local = 1 − 0.92 × b^1.6, then reduced for visibility and precipitation. Above the fog, local = 0.97 and canvas is at least 0.45.
 - **Air clarity**: 1 for AOD ≤ 0.15, decreasing beyond that to a minimum of 0.3; 0.88 with a warning when data is missing.
 - **Horizon**: 1 when the sunset azimuth is inside the open-sea sector, otherwise 0.88.
@@ -104,7 +104,7 @@ score = 100 × canvas × light path × local view × air clarity × horizon
 
 **Confidence** combines: model disagreement, number of models available, lead time, whether HRRR is available, whether AOD or light-path data is missing, and whether fog risk sits in the marginal 30–70% range (the fog line is the hardest thing to forecast).
 
-**Best window**: with little mid/high cloud, from 15 minutes before to 5 minutes after sunset. With mostly high cloud, 3–25 minutes after sunset. With mostly mid cloud, from 5 minutes before to 15 minutes after. Arrive 25 minutes early, or 45 minutes early at spots that need a hike.
+**Best window**: with little mid/high cloud, from 15 minutes before to 5 minutes after sunset. With cloud, the afterglow's length comes from geometry (the cloud-base method sunsetbot.top uses). A cloud at height h stays lit until the sun is δ = √(2(h − hb)/R) + x/R below the horizon. Here hb ≈ 1 km is the haze or marine-layer top the grazing ray must clear, and x ≈ 50 km is how far the western sky being watched lies from the spot. Open-Meteo gives cover by layer but not cloud base, so mid cloud is taken as 4.5 km and high cloud as 9 km. δ is then divided by how fast the sun sinks that day at that spot. On the California coast in October 2026, high cloud goes dark about 16–18 minutes after sunset and mid cloud about 11–13 minutes after. In June the sun sinks more slowly, adding 2–3 minutes. Elevated spots see a later sunset, so their glow ends sooner after it. When high cloud is ≥ 60% of the canvas, the best window is the last 60% of the glow (the deepest red). When mid cloud is ≥ 60%, it runs from 5 minutes before sunset until the mid cloud goes dark. For a mix, it runs from 5 minutes before sunset until the high cloud goes dark. This changes timing only, not the score, and there are no observed glow times to check it against. Arrive 25 minutes early, or 45 minutes early at spots that need a hike.
 
 ## Known limitations and next steps
 

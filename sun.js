@@ -41,8 +41,11 @@ export function sunsetInfo(dateStr, lat, lng, elevation = 0) {
   const seaLevelSunset = setTime(-0.833 * rad, lw, phi, dec, n, M, L);
   const dusk = setTime(-6 * rad, lw, phi, dec, n, M, L);
   const golden = setTime(6 * rad, lw, phi, dec, n, M, L);
+  // How fast the sun sinks just after sunset (degrees per minute); clouds stay lit for a fixed
+  // depression angle, so this turns afterglow geometry into minutes.
+  const descent = (sunPosition(seaLevelSunset, lat, lng).altitude - sunPosition(seaLevelSunset + 10 * 60000, lat, lng).altitude) / 10;
   return {
-    sunset, dusk, golden,
+    sunset, dusk, golden, seaLevelSunset, descent,
     azimuth: sunPosition(sunset, lat, lng).azimuth,
     elevationGainMin: Math.round((sunset - seaLevelSunset) / 60000),
   };

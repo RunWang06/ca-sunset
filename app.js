@@ -80,7 +80,7 @@ function drawRay(spot, idx) {
   if (rayLayer) rayLayer.remove();
   const r = state.results[state.day][idx];
   const az = state.suns[0][idx].azimuth;
-  const end = destPoint(spot.lat, spot.lon, az, 260);
+  const end = destPoint(spot.lat, spot.lon, az, PATH_KM.at(-1) + 10);
   const group = L.layerGroup();
   L.polyline([[spot.lat, spot.lon], end], { color: '#ff7a45', weight: 2, dashArray: '4 6', opacity: .9 }).addTo(group);
   const prof = r?.profile || [];
@@ -318,19 +318,20 @@ function compassSvg(az, view) {
 function profileSvg(prof) {
   // Cross-section: observer on the left, sun direction on the right. Layers drawn with opacity = coverage.
   const W = 340, H = 150, x0 = 26, x1 = W - 14, yb = H - 22;
-  const xs = PATH_KM.map((km) => x0 + (Math.sqrt(km) / Math.sqrt(250)) * (x1 - x0));
+  // Evenly spaced columns: the far points (250/300/350 km) would crowd together on a distance axis.
+  const step = (x1 - x0) / PATH_KM.length;
+  const xs = PATH_KM.map((_, k) => x0 + (k + 0.5) * step);
   const layers = [['high', 18, 44, '#f3c6a5'], ['mid', 50, 78, '#e79a7d'], ['low', 92, yb - 4, '#8a93a6']];
   let cells = '';
   prof.forEach((c, k) => {
-    const left = k === 0 ? x0 : (xs[k - 1] + xs[k]) / 2;
-    const right = k === prof.length - 1 ? x1 : (xs[k] + xs[k + 1]) / 2;
+    const left = xs[k] - step / 2, right = xs[k] + step / 2;
     for (const [key, y0, y1, col] of layers) {
       const v = c?.[key];
       if (v == null) cells += `<rect x="${left + 1}" y="${y0}" width="${right - left - 2}" height="${y1 - y0}" fill="none" stroke="var(--line)" stroke-dasharray="2 3"/>`;
       else if (v > 0.03) cells += `<rect x="${left + 1}" y="${y0}" width="${right - left - 2}" height="${y1 - y0}" rx="6" fill="${col}" opacity="${(0.15 + 0.85 * v).toFixed(2)}"/>`;
     }
   });
-  const labels = PATH_KM.map((km, k) => `<text x="${xs[k]}" y="${H - 6}" text-anchor="${k === PATH_KM.length - 1 ? 'end' : 'middle'}">${km === 0 ? tr('profile.you') : km + 'km'}</text>`).join('');
+  const labels = PATH_KM.map((km, k) => `<text x="${xs[k]}" y="${H - 6}" text-anchor="middle">${km === 0 ? tr('profile.you') : km}</text>`).join('');
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${tr('profile.aria')}">
     <text x="2" y="34">${tr('profile.high')}</text><text x="2" y="67">${tr('profile.mid')}</text><text x="2" y="${(92 + yb) / 2 + 3}">${tr('profile.low')}</text>
     ${cells}
@@ -355,7 +356,7 @@ function renderSheet() {
   const factorRow = (name, v, note) => `<div class="factor"><span>${name}</span><div class="bar"><i style="width:${Math.round((v ?? 0) * 100)}%;background:${(v ?? 0) >= 0.8 ? 'var(--good)' : (v ?? 0) >= 0.55 ? 'var(--neutral)' : 'var(--bad)'}"></i></div><span class="num" title="${note}">${v == null ? '—' : Math.round(v * 100)}</span></div>`;
 
   const pn = placeName(s);
-  const note = [tr(tm.peakKey), s.hike ? tr('tl.hike') : '', sun.elevationGainMin >= 1 ? tr('tl.elev', { n: sun.elevationGainMin }) : ''].filter(Boolean).join(lang === 'en' ? ' ' : '');
+  const note = [tr(tm.peakKey, tm.peakVars), s.hike ? tr('tl.hike') : '', sun.elevationGainMin >= 1 ? tr('tl.elev', { n: sun.elevationGainMin }) : ''].filter(Boolean).join(lang === 'en' ? ' ' : '');
   const fogText = r.aboveFog ? tr('f.aboveFog') : tr('f.fogRisk', { p: pct(r.fogRisk) });
   $('#sheetBody').innerHTML = `
     <div class="sheet-top">
