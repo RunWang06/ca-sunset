@@ -66,7 +66,7 @@ Anonymous visit counts are collected with [GoatCounter](https://www.goatcounter.
 | `i18n.js` | All Chinese and English text, language detection and switching, language-aware time and date formatting |
 | `app.js` | UI: recommendation card, best spot per region, map, ranking, detail panel, language switch |
 | `tests.html` | 43 tests: the model (synthetic scenarios) and translation completeness |
-| `scripts/backtest.mjs`, `backtest/` | Backtest of the weather inputs against ERA5 and airport METARs (`backtest/REPORT.md`), plus the regional HRRR-weight experiment (`backtest/REGIONAL_FOG.md`). Analysis only; not deployed |
+| `scripts/backtest.mjs`, `backtest/` | Backtest of the weather inputs against ERA5 and airport METARs (`backtest/REPORT.md`), plus the regional HRRR-weight (`REGIONAL_FOG.md`), light-path (`LIGHT_PATH.md`) and deck-edge (`DECK_EDGE.md`) experiments, and a log of real photo cases with the forecast at the time (`cases.json`, `CASES.md`, added with `add_case.mjs`). Analysis only; not deployed |
 | `vendor/leaflet/` | Leaflet 1.9.4 map library (BSD-2-Clause, see its `LICENSE`), served from this repo so the map doesn't depend on a third-party CDN |
 | `vendor/goatcounter/` | GoatCounter's `count.js` (ISC license) for the anonymous visit counts above |
 
@@ -111,4 +111,5 @@ score = 100 × canvas × light path × local view × air clarity × horizon
 - Gridded cloud cover can't show cloud texture or breaks. A next step could add live GOES-West satellite imagery for nowcasting.
 - Horizon sectors and elevations are hand-annotated approximations; there is no DEM line-of-sight calculation.
 - At pressure-level resolution the marine-layer top is coarse (about 200 m per level); shallow fog falls back to boundary-layer height.
-- The chance needs calibration: collect "did you actually see it?" feedback from users, or backtest against historical satellite imagery.
+- The chance needs calibration: collect "did you actually see it?" feedback from users, or backtest against historical satellite imagery. A first step is the photo-case log in `backtest/cases.json`.
+- A mid/high deck with a clear western edge (the sun lights it from underneath) is scored low today, on 2026-10-25 in the Bay Area for example. `backtest/DECK_EDGE.md` shows the pattern is common and somewhat predictable, but changing the model needs more photo cases first.

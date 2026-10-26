@@ -66,7 +66,7 @@ Open-Meteo 免费接口按 IP 限流：每分钟约 600 次、每小时 5,000 �
 | `i18n.js` | 全部中英文字、语言检测与切换、按语言格式化时间和日期 |
 | `app.js` | 界面：推荐卡、分区最佳、地图、排名、详情页、语言切换 |
 | `tests.html` | 43 项测试：模型（合成场景）和翻译完整性 |
-| `scripts/backtest.mjs`、`backtest/` | 用 ERA5 和机场 METAR 回测天气输入（`backtest/REPORT.md`），以及分地区 HRRR 权重实验（`backtest/REGIONAL_FOG.md`）。仅用于分析，不部署 |
+| `scripts/backtest.mjs`、`backtest/` | 用 ERA5 和机场 METAR 回测天气输入（`backtest/REPORT.md`），以及分地区 HRRR 权重（`REGIONAL_FOG.md`）、光路（`LIGHT_PATH.md`）、云层西缘（`DECK_EDGE.md`）几个实验，还有实拍案例记录：真实看到的晚霞和当时的预报（`cases.json`、`CASES.md`，用 `add_case.mjs` 添加）。仅用于分析，不部署 |
 | `vendor/leaflet/` | 地图库 Leaflet 1.9.4（BSD-2-Clause 许可，见其中的 `LICENSE`），放在本仓库里，地图不再依赖第三方 CDN |
 | `vendor/goatcounter/` | GoatCounter 的 `count.js`（ISC 许可），用于上面的匿名访问统计 |
 
@@ -111,4 +111,5 @@ score = 100 × 画布 × 光路 × 本地遮挡 × 空气透明度 × 海平线
 - 网格云量看不出云的纹理和破碎程度。下一步可以接入 GOES-West 卫星实况，用于临近预报。
 - 海平线扇区和海拔是人工标注的近似值，没有做 DEM 视线计算。
 - 海洋层顶在气压层分辨率下很粗（约 200 m 一层）；薄雾层会退回到边界层高度来估算。
-- 概率需要校准：可以收集用户的“实际看到了吗”反馈，或者用历史卫星图做回测。
+- 概率需要校准：可以收集用户的“实际看到了吗”反馈，或者用历史卫星图做回测。第一步是 `backtest/cases.json` 里的实拍案例记录。
+- 头顶有中高云层、西边有晴空缺口时（太阳从下方照亮整片云），现在的评分偏低，例如 2026-10-25 的湾区。`backtest/DECK_EDGE.md` 显示这种形势不少见、也能部分预报，但要改模型还需要更多实拍案例。

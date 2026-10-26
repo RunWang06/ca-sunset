@@ -1,0 +1,1702 @@
+[
+ {
+  "id": "2026-10-25-bay",
+  "date": "2026-10-25",
+  "area": "Berkeley / Emeryville shoreline, looking WSW at SF",
+  "where": {
+   "lat": 37.84,
+   "lon": -122.3,
+   "facing": 250,
+   "time": null
+  },
+  "observed": {
+   "rating": 82,
+   "label": "label.fire",
+   "ratedBy": "claude",
+   "description": "Broken mid deck (~60-70% of the sky, with gaps) lit vivid pink-red across most of the sky ~10-20 min after sunset; yellow clear band at the horizon behind SF. Date and time from the user (photo had no metadata).",
+   "photo": "pasted image (no metadata)"
+  },
+  "data": {
+   "builtAt": "2026-10-25T23:33:08.182Z",
+   "source": "local data.json",
+   "day": 0
+  },
+  "spots": [
+   {
+    "spot": "oceanbeach",
+    "sunset": "2026-10-26T01:21:33.946Z",
+    "azimuth": 255,
+    "forecast": {
+     "score": 28,
+     "label": "label.fair",
+     "prob": 0.15,
+     "confidence": "low",
+     "spread": 19,
+     "fogRisk": 0.22,
+     "aod": 0.08,
+     "headline": "hl.light",
+     "members": [
+      {
+       "name": "HRRR",
+       "score": 15
+      },
+      {
+       "name": "ECMWF",
+       "score": 51
+      },
+      {
+       "name": "GFS",
+       "score": 45
+      },
+      {
+       "name": "ICON",
+       "score": 5
+      }
+     ]
+    },
+    "deckEdge": {
+     "ensemble": {
+      "strict": 0.19,
+      "lenient": 0.65
+     },
+     "members": [
+      {
+       "name": "HRRR",
+       "deck": true,
+       "cv": 1,
+       "kind": "mid",
+       "edgeKm": null,
+       "lowBeyond": null,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "ECMWF",
+       "deck": true,
+       "cv": 0.9467143552220529,
+       "kind": "high",
+       "edgeKm": 250,
+       "lowBeyond": 0.4415182546425749,
+       "edge": true,
+       "fires": false,
+       "firesLenient": true
+      },
+      {
+       "name": "GFS",
+       "deck": true,
+       "cv": 1,
+       "kind": "high",
+       "edgeKm": 300,
+       "lowBeyond": 0.01140570316447152,
+       "edge": true,
+       "fires": true,
+       "firesLenient": true
+      },
+      {
+       "name": "ICON",
+       "deck": true,
+       "cv": 1,
+       "kind": "high",
+       "edgeKm": 300,
+       "lowBeyond": 0.7744328418511484,
+       "edge": true,
+       "fires": false,
+       "firesLenient": true
+      }
+     ]
+    },
+    "inputs": [
+     {
+      "name": "HRRR",
+      "w": 0.35,
+      "path": [
+       {
+        "low": 0.26,
+        "mid": 1,
+        "high": 0.63
+       },
+       {
+        "low": 0.15,
+        "mid": 1,
+        "high": 0.31
+       },
+       {
+        "low": 0.26,
+        "mid": 1,
+        "high": 0.04
+       },
+       {
+        "low": 0.22,
+        "mid": 1,
+        "high": 0
+       },
+       {
+        "low": 0.96,
+        "mid": 0.6,
+        "high": 0
+       },
+       {
+        "low": 1,
+        "mid": 0,
+        "high": 0.96
+       },
+       {
+        "low": 1,
+        "mid": 0,
+        "high": 0.97
+       }
+      ],
+      "obs": {
+       "vis": 15266,
+       "t2": 16,
+       "t925": 14.71,
+       "rh": 87.21
+      }
+     },
+     {
+      "name": "ECMWF",
+      "w": 0.27,
+      "path": [
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0.99
+       },
+       {
+        "low": 0.01,
+        "mid": 0,
+        "high": 0.95
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.89
+       },
+       {
+        "low": 0.08,
+        "mid": 0.01,
+        "high": 0.4
+       },
+       {
+        "low": 0.3,
+        "mid": 0,
+        "high": 0.26
+       },
+       {
+        "low": 0.27,
+        "mid": 0.14,
+        "high": 0.07
+       },
+       {
+        "low": 0.76,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 15.84,
+       "t925": 14.44,
+       "rh": 82.4
+      }
+     },
+     {
+      "name": "GFS",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.02,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.96,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.97,
+        "high": 0.03
+       },
+       {
+        "low": 0,
+        "mid": 0.03,
+        "high": 0
+       },
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 24140,
+       "t2": 17.17,
+       "t925": 15.31,
+       "rh": 69.01
+      }
+     },
+     {
+      "name": "ICON",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0.39,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.74,
+        "high": 1
+       },
+       {
+        "low": 0.57,
+        "mid": 0.43,
+        "high": 1
+       },
+       {
+        "low": 0.83,
+        "mid": 0.99,
+        "high": 0.9
+       },
+       {
+        "low": 0.75,
+        "mid": 0.82,
+        "high": 0.48
+       },
+       {
+        "low": 0.81,
+        "mid": 0.07,
+        "high": 0
+       },
+       {
+        "low": 0.74,
+        "mid": 0.02,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 15.38,
+       "t925": 14.79,
+       "rh": 80.23
+      }
+     }
+    ]
+   },
+   {
+    "spot": "twinpeaks",
+    "sunset": "2026-10-26T01:23:32.602Z",
+    "azimuth": 256,
+    "forecast": {
+     "score": 28,
+     "label": "label.fair",
+     "prob": 0.14,
+     "confidence": "low",
+     "spread": 18,
+     "fogRisk": 0.14,
+     "aod": 0.08,
+     "headline": "hl.light",
+     "members": [
+      {
+       "name": "HRRR",
+       "score": 15
+      },
+      {
+       "name": "ECMWF",
+       "score": 50
+      },
+      {
+       "name": "GFS",
+       "score": 44
+      },
+      {
+       "name": "ICON",
+       "score": 4
+      }
+     ]
+    },
+    "deckEdge": {
+     "ensemble": {
+      "strict": 0.19,
+      "lenient": 0.65
+     },
+     "members": [
+      {
+       "name": "HRRR",
+       "deck": true,
+       "cv": 1,
+       "kind": "mid",
+       "edgeKm": null,
+       "lowBeyond": null,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "ECMWF",
+       "deck": true,
+       "cv": 0.9487743455304039,
+       "kind": "high",
+       "edgeKm": 250,
+       "lowBeyond": 0.47536756715774536,
+       "edge": true,
+       "fires": false,
+       "firesLenient": true
+      },
+      {
+       "name": "GFS",
+       "deck": true,
+       "cv": 1,
+       "kind": "high",
+       "edgeKm": 300,
+       "lowBeyond": 0.03204071203337775,
+       "edge": true,
+       "fires": true,
+       "firesLenient": true
+      },
+      {
+       "name": "ICON",
+       "deck": true,
+       "cv": 1,
+       "kind": "high",
+       "edgeKm": 350,
+       "lowBeyond": 0.7348424712181091,
+       "edge": true,
+       "fires": false,
+       "firesLenient": true
+      }
+     ]
+    },
+    "inputs": [
+     {
+      "name": "HRRR",
+      "w": 0.35,
+      "path": [
+       {
+        "low": 0.09,
+        "mid": 1,
+        "high": 0.61
+       },
+       {
+        "low": 0.18,
+        "mid": 1,
+        "high": 0.49
+       },
+       {
+        "low": 0.26,
+        "mid": 1,
+        "high": 0.03
+       },
+       {
+        "low": 0.23,
+        "mid": 1,
+        "high": 0
+       },
+       {
+        "low": 0.96,
+        "mid": 0.58,
+        "high": 0
+       },
+       {
+        "low": 1,
+        "mid": 0.04,
+        "high": 0
+       },
+       {
+        "low": 1,
+        "mid": 0,
+        "high": 0.98
+       }
+      ],
+      "obs": {
+       "vis": 14179,
+       "t2": 13.92,
+       "t925": 14.88,
+       "rh": 88.04
+      }
+     },
+     {
+      "name": "ECMWF",
+      "w": 0.27,
+      "path": [
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0.99
+       },
+       {
+        "low": 0.01,
+        "mid": 0,
+        "high": 0.95
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.89
+       },
+       {
+        "low": 0.08,
+        "mid": 0.01,
+        "high": 0.39
+       },
+       {
+        "low": 0.3,
+        "mid": 0,
+        "high": 0.25
+       },
+       {
+        "low": 0.36,
+        "mid": 0,
+        "high": 0.2
+       },
+       {
+        "low": 0.76,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 14.13,
+       "t925": 14.44,
+       "rh": 82.54
+      }
+     },
+     {
+      "name": "GFS",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.02,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.97,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.97,
+        "high": 0.03
+       },
+       {
+        "low": 0.04,
+        "mid": 0.24,
+        "high": 0
+       },
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 24140,
+       "t2": 15.45,
+       "t925": 15.31,
+       "rh": 69.12
+      }
+     },
+     {
+      "name": "ICON",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0.42,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.73,
+        "high": 1
+       },
+       {
+        "low": 0.58,
+        "mid": 0.45,
+        "high": 1
+       },
+       {
+        "low": 0.83,
+        "mid": 0.99,
+        "high": 0.91
+       },
+       {
+        "low": 0.75,
+        "mid": 0.82,
+        "high": 0.46
+       },
+       {
+        "low": 0.77,
+        "mid": 0.44,
+        "high": 0
+       },
+       {
+        "low": 0.73,
+        "mid": 0.01,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 13.72,
+       "t925": 14.79,
+       "rh": 80.41
+      }
+     }
+    ]
+   },
+   {
+    "spot": "hawk",
+    "sunset": "2026-10-26T01:23:39.302Z",
+    "azimuth": 256,
+    "forecast": {
+     "score": 29,
+     "label": "label.fair",
+     "prob": 0.17,
+     "confidence": "low",
+     "spread": 20,
+     "fogRisk": 0.14,
+     "aod": 0.1,
+     "headline": "hl.light",
+     "members": [
+      {
+       "name": "HRRR",
+       "score": 16
+      },
+      {
+       "name": "ECMWF",
+       "score": 55
+      },
+      {
+       "name": "GFS",
+       "score": 43
+      },
+      {
+       "name": "ICON",
+       "score": 4
+      }
+     ]
+    },
+    "deckEdge": {
+     "ensemble": {
+      "strict": 0.19,
+      "lenient": 0.65
+     },
+     "members": [
+      {
+       "name": "HRRR",
+       "deck": true,
+       "cv": 1,
+       "kind": "mid",
+       "edgeKm": null,
+       "lowBeyond": null,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "ECMWF",
+       "deck": true,
+       "cv": 0.9144912805885077,
+       "kind": "high",
+       "edgeKm": 250,
+       "lowBeyond": 0.44650926409672803,
+       "edge": true,
+       "fires": false,
+       "firesLenient": true
+      },
+      {
+       "name": "GFS",
+       "deck": true,
+       "cv": 1,
+       "kind": "high",
+       "edgeKm": 300,
+       "lowBeyond": 0.011057493202553857,
+       "edge": true,
+       "fires": true,
+       "firesLenient": true
+      },
+      {
+       "name": "ICON",
+       "deck": true,
+       "cv": 0.9983885686185553,
+       "kind": "mix",
+       "edgeKm": 300,
+       "lowBeyond": 0.7739540531535114,
+       "edge": true,
+       "fires": false,
+       "firesLenient": true
+      }
+     ]
+    },
+    "inputs": [
+     {
+      "name": "HRRR",
+      "w": 0.35,
+      "path": [
+       {
+        "low": 0.05,
+        "mid": 1,
+        "high": 0.6
+       },
+       {
+        "low": 0.2,
+        "mid": 1,
+        "high": 0.27
+       },
+       {
+        "low": 0.23,
+        "mid": 1,
+        "high": 0.04
+       },
+       {
+        "low": 0.23,
+        "mid": 1,
+        "high": 0
+       },
+       {
+        "low": 0.96,
+        "mid": 0.58,
+        "high": 0
+       },
+       {
+        "low": 1,
+        "mid": 0,
+        "high": 0.97
+       },
+       {
+        "low": 1,
+        "mid": 0,
+        "high": 0.98
+       }
+      ],
+      "obs": {
+       "vis": 14537,
+       "t2": 13.92,
+       "t925": 14.88,
+       "rh": 87.08
+      }
+     },
+     {
+      "name": "ECMWF",
+      "w": 0.27,
+      "path": [
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0.99
+       },
+       {
+        "low": 0.01,
+        "mid": 0,
+        "high": 0.95
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.75
+       },
+       {
+        "low": 0.08,
+        "mid": 0.01,
+        "high": 0.39
+       },
+       {
+        "low": 0.3,
+        "mid": 0,
+        "high": 0.25
+       },
+       {
+        "low": 0.27,
+        "mid": 0.14,
+        "high": 0.07
+       },
+       {
+        "low": 0.76,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 14.23,
+       "t925": 14.44,
+       "rh": 82.55
+      }
+     },
+     {
+      "name": "GFS",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.42,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.97,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.97,
+        "high": 0.03
+       },
+       {
+        "low": 0,
+        "mid": 0.03,
+        "high": 0
+       },
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 24140,
+       "t2": 15.55,
+       "t925": 15.31,
+       "rh": 69.13
+      }
+     },
+     {
+      "name": "ICON",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0.96,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0.73,
+        "high": 1
+       },
+       {
+        "low": 0.59,
+        "mid": 0.62,
+        "high": 0.98
+       },
+       {
+        "low": 0.83,
+        "mid": 0.99,
+        "high": 0.91
+       },
+       {
+        "low": 0.75,
+        "mid": 0.82,
+        "high": 0.46
+       },
+       {
+        "low": 0.81,
+        "mid": 0.06,
+        "high": 0
+       },
+       {
+        "low": 0.73,
+        "mid": 0.01,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 14.15,
+       "t925": 14.61,
+       "rh": 80.23
+      }
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "2026-10-25-sd",
+  "date": "2026-10-25",
+  "area": "UTC / La Jolla Village, San Diego",
+  "where": {
+   "lat": 32.87,
+   "lon": -117.22,
+   "facing": 247,
+   "time": "18:19"
+  },
+  "observed": {
+   "rating": 55,
+   "label": "label.good",
+   "ratedBy": "claude",
+   "description": "Thin cirrus streaks (~25-40% of the sky) lit pink-orange low in the west 12 min after sunset; clean orange horizon; clear overhead plus one contrail; no fog. Moderate glow.",
+   "photo": "IMG_3119.HEIC"
+  },
+  "data": {
+   "builtAt": "2026-10-25T23:33:08.182Z",
+   "source": "local data.json",
+   "day": 0
+  },
+  "spots": [
+   {
+    "spot": "gliderport",
+    "sunset": "2026-10-26T01:07:45.303Z",
+    "azimuth": 256,
+    "forecast": {
+     "score": 65,
+     "label": "label.worth",
+     "prob": 0.54,
+     "confidence": "low",
+     "spread": 28,
+     "fogRisk": 0.05,
+     "aod": 0.09,
+     "headline": "hl.great",
+     "members": [
+      {
+       "name": "HRRR",
+       "score": 31
+      },
+      {
+       "name": "ECMWF",
+       "score": 99
+      },
+      {
+       "name": "GFS",
+       "score": 85
+      },
+      {
+       "name": "ICON",
+       "score": 61
+      }
+     ]
+    },
+    "deckEdge": {
+     "ensemble": {
+      "strict": 0.19,
+      "lenient": 0.19
+     },
+     "members": [
+      {
+       "name": "HRRR",
+       "deck": false,
+       "cv": 0.10043703807671862,
+       "kind": "high",
+       "edgeKm": 150,
+       "lowBeyond": 0.602487216706574,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "ECMWF",
+       "deck": false,
+       "cv": 0.5994080216819048,
+       "kind": "high",
+       "edgeKm": 250,
+       "lowBeyond": 0.03332481113771597,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "GFS",
+       "deck": true,
+       "cv": 0.8122172100117306,
+       "kind": "high",
+       "edgeKm": 300,
+       "lowBeyond": 0,
+       "edge": true,
+       "fires": true,
+       "firesLenient": true
+      },
+      {
+       "name": "ICON",
+       "deck": false,
+       "cv": 0.31955520252524516,
+       "kind": "high",
+       "edgeKm": 150,
+       "lowBeyond": 0.5134821647837758,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      }
+     ]
+    },
+    "inputs": [
+     {
+      "name": "HRRR",
+      "w": 0.35,
+      "path": [
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0.11
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.13
+       },
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0.03
+       },
+       {
+        "low": 0.12,
+        "mid": 0,
+        "high": 0.04
+       },
+       {
+        "low": 0.59,
+        "mid": 0,
+        "high": 0.13
+       },
+       {
+        "low": 0.95,
+        "mid": 0,
+        "high": 0.02
+       },
+       {
+        "low": 0.75,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 21362,
+       "t2": 21.94,
+       "t925": 19.67,
+       "rh": 75.17
+      }
+     },
+     {
+      "name": "ECMWF",
+      "w": 0.27,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.51
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.72
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.52
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.64
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.23
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0
+       },
+       {
+        "low": 0.1,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 21.37,
+       "t925": 19.48,
+       "rh": 80.65
+      }
+     },
+     {
+      "name": "GFS",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.78
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.75
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.97
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.16
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 24140,
+       "t2": 21.52,
+       "t925": 18.58,
+       "rh": 65.91
+      }
+     },
+     {
+      "name": "ICON",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0.11,
+        "high": 0.29
+       },
+       {
+        "low": 0,
+        "mid": 0.13,
+        "high": 0.28
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.17
+       },
+       {
+        "low": 0.45,
+        "mid": 0,
+        "high": 0.18
+       },
+       {
+        "low": 0.48,
+        "mid": 0,
+        "high": 0.35
+       },
+       {
+        "low": 0.51,
+        "mid": 0,
+        "high": 0
+       },
+       {
+        "low": 0.62,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 21.54,
+       "t925": 19.54,
+       "rh": 74.35
+      }
+     }
+    ]
+   },
+   {
+    "spot": "soledad",
+    "sunset": "2026-10-26T01:08:37.486Z",
+    "azimuth": 256,
+    "forecast": {
+     "score": 67,
+     "label": "label.worth",
+     "prob": 0.55,
+     "confidence": "low",
+     "spread": 29,
+     "fogRisk": 0.05,
+     "aod": 0.09,
+     "headline": "hl.great",
+     "members": [
+      {
+       "name": "HRRR",
+       "score": 32
+      },
+      {
+       "name": "ECMWF",
+       "score": 99
+      },
+      {
+       "name": "GFS",
+       "score": 93
+      },
+      {
+       "name": "ICON",
+       "score": 61
+      }
+     ]
+    },
+    "deckEdge": {
+     "ensemble": {
+      "strict": 0.19,
+      "lenient": 0.19
+     },
+     "members": [
+      {
+       "name": "HRRR",
+       "deck": false,
+       "cv": 0.11222006140107905,
+       "kind": "high",
+       "edgeKm": 150,
+       "lowBeyond": 0.6029764355398715,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "ECMWF",
+       "deck": false,
+       "cv": 0.61723220779361,
+       "kind": "high",
+       "edgeKm": 250,
+       "lowBeyond": 0.03365095702658096,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "GFS",
+       "deck": true,
+       "cv": 0.7638495786804623,
+       "kind": "high",
+       "edgeKm": 300,
+       "lowBeyond": 0,
+       "edge": true,
+       "fires": true,
+       "firesLenient": true
+      },
+      {
+       "name": "ICON",
+       "deck": false,
+       "cv": 0.32298310862981233,
+       "kind": "high",
+       "edgeKm": 150,
+       "lowBeyond": 0.5131016612467667,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      }
+     ]
+    },
+    "inputs": [
+     {
+      "name": "HRRR",
+      "w": 0.35,
+      "path": [
+       {
+        "low": 0.01,
+        "mid": 0,
+        "high": 0.14
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.14
+       },
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0.03
+       },
+       {
+        "low": 0.12,
+        "mid": 0,
+        "high": 0.04
+       },
+       {
+        "low": 0.58,
+        "mid": 0,
+        "high": 0.13
+       },
+       {
+        "low": 0.95,
+        "mid": 0,
+        "high": 0.02
+       },
+       {
+        "low": 0.76,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 19738,
+       "t2": 20.08,
+       "t925": 19.51,
+       "rh": 75.84
+      }
+     },
+     {
+      "name": "ECMWF",
+      "w": 0.27,
+      "path": [
+       {
+        "low": 0.01,
+        "mid": 0,
+        "high": 0.56
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.73
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.52
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.64
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.23
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0
+       },
+       {
+        "low": 0.1,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 20.89,
+       "t925": 18.83,
+       "rh": 78.29
+      }
+     },
+     {
+      "name": "GFS",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.63
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.75
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.97
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.16
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 24140,
+       "t2": 21.57,
+       "t925": 18.43,
+       "rh": 56.57
+      }
+     },
+     {
+      "name": "ICON",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0.11,
+        "high": 0.29
+       },
+       {
+        "low": 0,
+        "mid": 0.13,
+        "high": 0.28
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.17
+       },
+       {
+        "low": 0.45,
+        "mid": 0,
+        "high": 0.17
+       },
+       {
+        "low": 0.48,
+        "mid": 0,
+        "high": 0.34
+       },
+       {
+        "low": 0.51,
+        "mid": 0,
+        "high": 0
+       },
+       {
+        "low": 0.62,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 20.7,
+       "t925": 19.55,
+       "rh": 74.47
+      }
+     }
+    ]
+   },
+   {
+    "spot": "lajolla",
+    "sunset": "2026-10-26T01:06:54.128Z",
+    "azimuth": 256,
+    "forecast": {
+     "score": 66,
+     "label": "label.worth",
+     "prob": 0.54,
+     "confidence": "low",
+     "spread": 28,
+     "fogRisk": 0.05,
+     "aod": 0.09,
+     "headline": "hl.great",
+     "members": [
+      {
+       "name": "HRRR",
+       "score": 32
+      },
+      {
+       "name": "ECMWF",
+       "score": 99
+      },
+      {
+       "name": "GFS",
+       "score": 85
+      },
+      {
+       "name": "ICON",
+       "score": 61
+      }
+     ]
+    },
+    "deckEdge": {
+     "ensemble": {
+      "strict": 0.19,
+      "lenient": 0.19
+     },
+     "members": [
+      {
+       "name": "HRRR",
+       "deck": false,
+       "cv": 0.10647472978373371,
+       "kind": "high",
+       "edgeKm": 150,
+       "lowBeyond": 0.6020074569404125,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "ECMWF",
+       "deck": false,
+       "cv": 0.6126169986124833,
+       "kind": "high",
+       "edgeKm": 250,
+       "lowBeyond": 0.03300497129360835,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      },
+      {
+       "name": "GFS",
+       "deck": true,
+       "cv": 0.8113340966643889,
+       "kind": "high",
+       "edgeKm": 300,
+       "lowBeyond": 0,
+       "edge": true,
+       "fires": true,
+       "firesLenient": true
+      },
+      {
+       "name": "ICON",
+       "deck": false,
+       "cv": 0.3161872994848466,
+       "kind": "high",
+       "edgeKm": 150,
+       "lowBeyond": 0.5138553112685681,
+       "edge": false,
+       "fires": false,
+       "firesLenient": false
+      }
+     ]
+    },
+    "inputs": [
+     {
+      "name": "HRRR",
+      "w": 0.35,
+      "path": [
+       {
+        "low": 0.01,
+        "mid": 0,
+        "high": 0.13
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.13
+       },
+       {
+        "low": 0.02,
+        "mid": 0,
+        "high": 0.03
+       },
+       {
+        "low": 0.12,
+        "mid": 0,
+        "high": 0.04
+       },
+       {
+        "low": 0.59,
+        "mid": 0,
+        "high": 0.13
+       },
+       {
+        "low": 0.95,
+        "mid": 0,
+        "high": 0.02
+       },
+       {
+        "low": 0.75,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 21760,
+       "t2": 22.76,
+       "t925": 19.61,
+       "rh": 74.71
+      }
+     },
+     {
+      "name": "ECMWF",
+      "w": 0.27,
+      "path": [
+       {
+        "low": 0.01,
+        "mid": 0,
+        "high": 0.56
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.72
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.52
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.65
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.23
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0
+       },
+       {
+        "low": 0.1,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 22.37,
+       "t925": 18.83,
+       "rh": 78.23
+      }
+     },
+     {
+      "name": "GFS",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.78
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.74
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.96
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 1
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.17
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": 24140,
+       "t2": 22.12,
+       "t925": 18.43,
+       "rh": 65.9
+      }
+     },
+     {
+      "name": "ICON",
+      "w": 0.19,
+      "path": [
+       {
+        "low": 0,
+        "mid": 0.1,
+        "high": 0.29
+       },
+       {
+        "low": 0,
+        "mid": 0.13,
+        "high": 0.28
+       },
+       {
+        "low": 0,
+        "mid": 0,
+        "high": 0.17
+       },
+       {
+        "low": 0.45,
+        "mid": 0,
+        "high": 0.18
+       },
+       {
+        "low": 0.48,
+        "mid": 0,
+        "high": 0.35
+       },
+       {
+        "low": 0.51,
+        "mid": 0,
+        "high": 0
+       },
+       {
+        "low": 0.62,
+        "mid": 0,
+        "high": 0
+       }
+      ],
+      "obs": {
+       "vis": null,
+       "t2": 22.16,
+       "t925": 19.54,
+       "rh": 74.23
+      }
+     }
+    ]
+   }
+  ]
+ }
+]
