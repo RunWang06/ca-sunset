@@ -197,19 +197,25 @@ export async function fetchAll(spots, azimuths, startDate, { onProgress = () => 
 // median gap 4.9 h), so trust it for 6 h; the models themselves only publish new runs every 1–6 h,
 // the page shows the data's time, and Refresh still fetches live data.
 const PREBUILT_MAX = 6 * 60 * 60 * 1000;
+// Returns data.json for these dates if it is under STALE_MAX old; `old` marks one past PREBUILT_MAX.
 async function loadPrebuilt(startDate) {
   try {
     const res = await fetch('data.json', { cache: 'no-cache' });
     if (!res.ok) return null;
     const json = await res.json();
-    if (json.data?.startDate !== startDate || !json.data.obs || Date.now() - json.at > PREBUILT_MAX) return null;
-    return json;
+    const age = Date.now() - json.at;
+    if (json.data?.startDate !== startDate || !json.data.obs || age > STALE_MAX) return null;
+    return { ...json, old: age > PREBUILT_MAX };
   } catch { return null; }
 }
 
 /**
  * Data for the page: browser cache → prebuilt data.json → live Open-Meteo → last good download.
- * Returns the fetchAll() shape plus { at, source: 'cache'|'prebuilt'|'live', stale }.
+ * Returns the fetchAll() shape plus { at, source: 'cache'|'prebuilt'|'live', stale, old }.
+ * When data.json is past PREBUILT_MAX (the scheduled rebuild skipped runs) and this is not a forced
+ * refresh, the newest data under STALE_MAX old (data.json or the browser cache) comes back at once
+ * with old: true, so the page can show it while it calls loadData(..., { force: true }) in the
+ * background. A full live download takes about a minute, and a blank page meanwhile looks broken.
  */
 export async function loadData(spots, azimuths, startDate, { force = false, onProgress = () => {} } = {}) {
   const cacheKey = `${startDate}`;
@@ -218,9 +224,13 @@ export async function loadData(spots, azimuths, startDate, { force = false, onPr
   const pre = await loadPrebuilt(startDate);
   // On a forced refresh, only accept data.json if it is newer than what the browser already has.
   const cached = cacheGet(cacheKey, STALE_MAX);
-  if (pre && (!force || !cached || pre.at > cached.at + 60000)) {
+  if (pre && !pre.old && (!force || !cached || pre.at > cached.at + 60000)) {
     if (!pre.data.errors?.length) cacheSet(cacheKey, pre.data, pre.at);
     return { ...pre.data, at: pre.at, source: 'prebuilt' };
+  }
+  if (!force && (pre || cached)) {
+    if (pre && (!cached || pre.at > cached.at)) return { ...pre.data, at: pre.at, source: 'prebuilt', old: true };
+    return { ...cached.data, at: cached.at, source: 'cache', old: true };
   }
 
   try {

@@ -63,6 +63,8 @@ export const STRINGS = {
     // status line
     'status.loading': '正在获取 4 个气象模型、海洋层结构和空气质量数据{p}…服务器较忙时可能需要半分钟',
     'status.stale': '网络不稳定，暂时显示 {age}前（{t}）的数据',
+    'status.old': '云端数据未按时更新，先显示 {age}前（{t}）的数据',
+    'status.refreshing': '正在后台获取最新数据{p}…',
     'status.retry': '重试',
     'status.refresh': '刷新',
     'status.updated': '数据更新于 {t}',
@@ -260,6 +262,8 @@ export const STRINGS = {
 
     'status.loading': 'Fetching 4 weather models, marine-layer structure and air quality{p}… this can take half a minute when the server is busy',
     'status.stale': 'Connection unstable — showing data from {age} ago ({t})',
+    'status.old': 'Cloud data is behind schedule — showing data from {age} ago ({t})',
+    'status.refreshing': 'fetching the latest in the background{p}…',
     'status.retry': 'Retry',
     'status.refresh': 'Refresh',
     'status.updated': 'Updated {t}',

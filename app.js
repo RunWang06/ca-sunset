@@ -16,7 +16,7 @@ const main = (s) => esc(placeName(s).main);
 const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
 const tone = (s) => (s == null ? 'var(--line)' : s >= 80 ? 'var(--s4)' : s >= 65 ? 'var(--s3)' : s >= 45 ? 'var(--s2)' : s >= 25 ? 'var(--s1)' : 'var(--s0)');
 
-const state = { day: 0, region: 'all', sort: 'score', query: '', selected: null, userLoc: null, data: null, results: [[], []], dates: [], suns: [[], []], loading: true };
+const state = { day: 0, region: 'all', sort: 'score', query: '', selected: null, userLoc: null, data: null, results: [[], []], dates: [], suns: [[], []], loading: true, refreshing: false };
 
 // ---------- setup ----------
 function initDates() {
@@ -240,9 +240,15 @@ function renderStatus(extra = '') {
   } else if (d) {
     const age = Math.round((Date.now() - d.at) / 60000);
     const ageText = age >= 60 ? tr('age.hm', { h: Math.floor(age / 60), m: age % 60 }) : tr('age.m', { m: age });
+    const p = state.progress;
+    const action = state.refreshing
+      ? tr('status.refreshing', { p: p ? ` (${p[0]}/${p[1]})` : '' })
+      : `<a href="#" id="refresh">${tr(d.stale ? 'status.retry' : 'status.refresh')}</a>`;
     html = d.stale
-      ? `<span class="warn">${tr('status.stale', { age: ageText, t: t(d.at) })}</span> · <a href="#" id="refresh">${tr('status.retry')}</a>`
-      : `${tr('status.updated', { t: t(d.at) })}${d.source ? tr(`src.${d.source}`) : ''} · <a href="#" id="refresh">${tr('status.refresh')}</a>`;
+      ? `<span class="warn">${tr('status.stale', { age: ageText, t: t(d.at) })}</span> · ${action}`
+      : d.old
+        ? `<span class="warn">${tr('status.old', { age: ageText, t: t(d.at) })}</span> · ${action}`
+        : `${tr('status.updated', { t: t(d.at) })}${d.source ? tr(`src.${d.source}`) : ''} · ${action}`;
     if (d.errors?.length && !d.stale) html += ` · <span class="warn">${esc(tr('status.partial', { e: errorText(d.errors) }))}</span>`;
     if (state.excluded?.length) html += ` · <span class="warn">${esc(tr('status.excluded', { names: state.excluded.map((e) => e.name).join(' / ') }))}</span>`;
   }
@@ -557,20 +563,24 @@ function locate() {
 
 // ---------- load ----------
 let retryTimer = null;
+// With a forecast already on screen (a refresh, or old data shown while newer data downloads), the
+// page stays usable: only the status line shows progress. Without one, it shows the skeleton.
 async function load(force = false) {
   clearTimeout(retryTimer);
+  if (state.refreshing) return;
   const hadData = !!state.data;
-  state.loading = true; state.progress = null;
+  state.progress = null;
+  if (hadData) state.refreshing = true; else state.loading = true;
   renderStatus();
-  if (!hadData) { renderAnswer(); renderList(); } // a refresh keeps showing the current forecast meanwhile
+  if (!hadData) { renderAnswer(); renderList(); }
   try {
     const az = Object.fromEntries(SPOTS.map((s, i) => [s.id, state.suns[0][i].azimuth]));
     const data = await loadData(SPOTS, az, state.dates[0], {
-      force, onProgress: (done, total) => { state.progress = [done, total]; if (state.loading) renderStatus(); },
+      force, onProgress: (done, total) => { state.progress = [done, total]; if (state.loading || state.refreshing) renderStatus(); },
     });
     // A stale fallback must not replace the (newer) forecast already on screen.
     if (!(data.stale && hadData)) { state.data = data; compute(); }
-    state.loading = false;
+    state.loading = false; state.refreshing = false;
     renderAll();
     if (data.stale) {
       renderStatus(` · <span class="warn">${tr('status.autoRetry')}</span>`);
@@ -578,10 +588,13 @@ async function load(force = false) {
     }
     const h = new URLSearchParams(location.hash.slice(1));
     if (h.get('s') && !state.selected) { if (h.get('d') != null) state.day = +h.get('d') === 1 ? 1 : 0; renderAll(); openSpot(h.get('s')); }
+    // Old data is on screen: fetch the latest now, in the background.
+    if (data.old && !force) load(true);
   } catch (e) {
-    state.loading = false;
+    state.loading = false; state.refreshing = false;
     if (hadData) {
       renderStatus(` · <span class="warn">${esc(tr('status.refreshFail', { e: errorText(e.errors || [e.message]) }))}</span>`);
+      if (state.data?.old) retryTimer = setTimeout(() => load(true), 60000);
       return;
     }
     $('#answer').innerHTML = `<div class="coast-note"><b>${tr('fail.title')}</b> ${tr('fail.body', { link: `<a href="#" id="retry">${tr('fail.link')}</a>` })}<br><small style="color:var(--ink-3)">${esc(errorText(e.errors || [e.message]))}</small></div>`;
